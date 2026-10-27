@@ -1,0 +1,8 @@
+node_modules
+.next
+data
+fixtures
+package-lock.json
+HANDOFF.md
+
+next-env.d.ts

@@ -1,0 +1,27 @@
+{
+  "capturedAt": "2026-10-27T08:14:08.390Z",
+  "sources": {
+    "hf_daily.json": {
+      "url": "https://huggingface.co/api/daily_papers",
+      "ok": true
+    },
+    "hn_search.json": {
+      "url": "https://hn.algolia.com/api/v1/search?query=arxiv.org&restrictSearchableAttributes=url&tags=story&hitsPerPage=10",
+      "ok": true
+    },
+    "hn_item.json": {
+      "url": "https://hn.algolia.com/api/v1/items/36994214",
+      "ok": true,
+      "note": "Reduced to short real excerpts; full text is not distributed."
+    },
+    "arxiv_atom.xml": {
+      "url": "https://export.arxiv.org/api/query?id_list=2610.33608,2610.34149,2610.35518,2610.31635,2610.35434,2610.34415&max_results=6",
+      "ok": true
+    },
+    "arxiv_html.html": {
+      "url": "https://arxiv.org/html/2610.33608",
+      "ok": true,
+      "note": "Reduced to short real excerpts; full text is not distributed."
+    }
+  }
+}

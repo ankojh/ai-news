@@ -1,0 +1,172 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/bvPv2+u2hbgJAmeiygijWIyty08</id>
+  <title>arXiv Query: search_query=&amp;id_list=2610.33608,2610.34149,2610.35518,2610.31635,2610.35434,2610.34415&amp;start=0&amp;max_results=6</title>
+  <updated>2026-10-27T08:14:11Z</updated>
+  <link href="https://arxiv.org/api/query?search_query=&amp;start=0&amp;max_results=6&amp;id_list=2610.33608,2610.34149,2610.35518,2610.31635,2610.35434,2610.34415" type="application/atom+xml"/>
+  <opensearch:itemsPerPage>6</opensearch:itemsPerPage>
+  <opensearch:totalResults>6</opensearch:totalResults>
+  <opensearch:startIndex>0</opensearch:startIndex>
+  <entry>
+    <id>http://arxiv.org/abs/2610.34415v1</id>
+    <title>Spatial Audio Generation and Editing with Executable Plans and Self-Distilling Transfusion</title>
+    <updated>2026-10-25T16:13:07Z</updated>
+    <link href="https://arxiv.org/abs/2610.34415v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2610.34415v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Spatial audio authoring coordinates source decisions with soundfield synthesis. For editing, plans specify what to change and retain, while reference audio supplies further acoustic detail. We present AMBIT, a unified framework for native First-Order Ambisonics (FOA) generation and editing with three connected contributions. First, a shared Transfusion backbone couples autoregressive planning with rectified-flow rendering through executable ScenePlans that specify source content, activity, and 3D trajectories. For editing, the plan describes the full target scene, including retained sources; contrastive features ground the requested change, while full reference latents supply residual acoustic detail for preservation. Second, an FOA-aware continuous VAE combines shared-decoder omnidirectional recovery, asymmetric grouped KL, and spatial covariance matching to preserve content and inter-channel structure. Third, joint Transfusion on-policy self-distillation (OPSD) refines planning on student-generated prefixes and rendering at sampling states reached under student plans, with target-conditioned teachers supervising both modes of the shared student. Evaluations across speech, music, and sound show improved generation content and spatial quality, acoustic fidelity during instruction-guided editing, and unedited-source preservation over the compared baselines. Project page: https://wjm-george.github.io/AMBIT/</summary>
+    <category term="cs.SD" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-10-25T16:13:07Z</published>
+    <arxiv:comment>28 pages, 2 figures</arxiv:comment>
+    <arxiv:primary_category term="cs.SD"/>
+    <author>
+      <name>Kam Man Wu</name>
+    </author>
+    <author>
+      <name>Yu Zhang</name>
+    </author>
+    <author>
+      <name>Pengjun Fang</name>
+    </author>
+    <author>
+      <name>Mingfei Chen</name>
+    </author>
+    <author>
+      <name>Weijia Chen</name>
+    </author>
+    <author>
+      <name>Zeyue Tian</name>
+    </author>
+    <author>
+      <name>Qifeng Chen</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2610.35518v1</id>
+    <title>S3AC: Stabilized, Selective, and Scalable Actor-Critic for LLM Reasoning</title>
+    <updated>2026-10-26T14:38:53Z</updated>
+    <link href="https://arxiv.org/abs/2610.35518v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2610.35518v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Critic-free methods are widely used in reinforcement learning with verifiable rewards (RLVR) for long chain-of-thought (CoT) reasoning, avoiding difficult and costly critic training. Common alternatives lack token-level credit assignment and typically rely on grouped rollouts to estimate prompt-specific baselines. A critic can address both limitations, but long-CoT critic training is hindered by insufficient coverage of trajectories with diverse lengths and early gradients dominated by the newly initialized value head. We introduce S3AC (Stabilized, Selective, and Scalable Actor-Critic) for LLM reasoning, built around a practical critic-training recipe. The trained critic provides token-specific advantages and prompt-specific baselines. Using the prompt-level baseline to estimate difficulty, we propose Difficulty-Aware Prompt Sampling (DAPS). DAPS combines this estimate with outcome history to select prompts before generation, reducing rollout waste without offline difficulty initialization. S3AC improves group-rollout performance across dense and mixture-of-experts models from 1.5B to 397B parameters, outperforming a modern GRPO variant (GRPO-X). At 35B, it sustains single-rollout training while tested critic-free baselines deteriorate after initial gains.</summary>
+    <category term="cs.LG" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-10-26T14:38:53Z</published>
+    <arxiv:comment>17 pages, 14 figures</arxiv:comment>
+    <arxiv:primary_category term="cs.LG"/>
+    <author>
+      <name>Shuo Shen</name>
+    </author>
+    <author>
+      <name>Guangran Cheng</name>
+    </author>
+    <author>
+      <name>Chengqi Lyu</name>
+    </author>
+    <author>
+      <name>Xiangsen Wang</name>
+    </author>
+    <author>
+      <name>Yanan Sun</name>
+    </author>
+    <author>
+      <name>Wenwei Zhang</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2610.33608v1</id>
+    <title>Mycelium: A Meta-Study of Hallucination Detection Across Provenance, Typology, and Granularities</title>
+    <updated>2026-10-24T11:20:24Z</updated>
+    <link href="https://arxiv.org/abs/2610.33608v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2610.33608v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Hallucination detection is increasingly important for evaluating and deploying large language models. However, existing methods are often compared across benchmarks that define and measure hallucination in substantially different ways, making reported scores difficult to interpret across settings. We study hallucination detection as a benchmark-conditioned measurement problem and organize existing benchmarks along three axes: provenance, which describes how model outputs and evidence conditions are obtained; typology, which captures the factuality and faithfulness failures represented by benchmark labels; and granularity, which specifies the unit at which hallucinations are annotated, predicted, and evaluated. Using this framework, we analyze how benchmark construction, annotation, and evaluation choices shape the underlying prediction task, and relate detector mechanisms and assumptions to the settings in which their performance is measured. We also examine span-level evaluation, where variation in annotation boundaries can substantially affect reported results, and propose Span Coverage F1 as a complementary containment-based metric. Our analysis clarifies what detector scores capture, highlights limitations of cross-benchmark comparisons, and motivates more explicit evaluation of generalization across benchmark conditions.</summary>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-10-24T11:20:24Z</published>
+    <arxiv:primary_category term="cs.CL"/>
+    <author>
+      <name>Julia Belikova</name>
+    </author>
+    <author>
+      <name>Elisei Rykov</name>
+    </author>
+    <arxiv:doi>10.1007/978-3-032-41546-2_17</arxiv:doi>
+    <link rel="related" href="https://doi.org/10.1007/978-3-032-41546-2_17" title="doi"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2610.35434v1</id>
+    <title>Skill$^{\infty}$: Recursive Self-Improvement for Agent Skill Optimization</title>
+    <updated>2026-10-26T13:37:56Z</updated>
+    <link href="https://arxiv.org/abs/2610.35434v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2610.35434v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Recursive self-improvement (RSI), in which a system also improves the way it improves, is a long-standing aspiration on the path to AGI. Language agents increasingly store procedural knowledge in reusable skills. Optimizing skills offers a direct way to achieve RSI, because the optimization procedure itself can be encoded as a skill. Existing skill optimizers, however, follow a hand-designed procedure. Even methods that evolve a meta-skill confine it to a fixed pipeline and relearn it for each task. We present Skill$^{\infty}$, which makes skill optimization recursively self-improving: a meta agent follows a meta-skill to optimize task skills and optimizes the meta-skill itself using the same procedure. The optimization is agent-led. The meta agent diagnoses execution traces, proposes candidates, requests independent reviews, and allocates the search budget. The meta-skill defines these steps, allowing self-improvement to rewrite them. This meta-skill is also decoupled from task skills, refined on multiple skill optimization tasks and then reused to optimize task skills across diverse domains. As in deployment, skills at both levels are standard packages loaded through native skill discovery. On 83 SkillsBench tasks, Skill$^{\infty}$ reaches a pass rate of 60.7%, compared with 56.4% for human-curated skills and 54.5% for SkillEvolver.</summary>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-10-26T13:37:56Z</published>
+    <arxiv:comment>17 pages, 5 figures</arxiv:comment>
+    <arxiv:primary_category term="cs.AI"/>
+    <author>
+      <name>Wangcheng Tao</name>
+    </author>
+    <author>
+      <name>Zhanglu Yan</name>
+    </author>
+    <author>
+      <name>Han Wu</name>
+    </author>
+    <author>
+      <name>Weng-Fai Wong</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2610.34149v1</id>
+    <title>Humans in Space: Can MLLMs Construct Human-Centric Spatial Understanding via Active Exocentric Exploration?</title>
+    <updated>2026-10-25T08:35:20Z</updated>
+    <link href="https://arxiv.org/abs/2610.34149v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2610.34149v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>While Multimodal Large Language Models (MLLMs) excel at zero-shot reasoning, their spatial capabilities are primarily evaluated through static, passive observation. In complex, human-centric scenes, occlusion often hides crucial geometric evidence, and passive benchmarks force models to guess rather than recognize their own visual uncertainty. To bridge this gap, we introduce SATE-Bench, a novel interactive benchmark comprising 316 real-world scenes and 2,525 multi-turn QA pairs to evaluate visual self-awareness and active exocentric view-exploration. It combines a Passive multi-view control with an Active exploration setting, where models start from a severely occluded view and must iteratively query adjacent viewpoints until they gather enough evidence to fully ``sate'' the question, scored by a step-penalized efficiency reward. Evaluating state-of-the-art MLLMs reveals that they terminate exploration prematurely while reporting high confidence, and struggle with fine-grained 3D geometric tasks; matched-view controls further attribute the Active--Passive gap primarily to insufficient evidence acquisition. Moreover, fine-tuning with Group Relative Policy Optimization (GRPO) shows that rewarding view-seeking increases active exploration but lowers overall accuracy, as models over-explore and fail to fuse expanding multi-view contexts across turns. These findings indicate that scaling passive multi-view perception does not intrinsically yield active spatial reasoning, highlighting the need for models that know where to look, how to integrate what they see, and when to stop. Code and data are available at https://gtc-gh.github.io/SATE-Bench/</summary>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="cs.CL" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-10-25T08:35:20Z</published>
+    <arxiv:comment>Winter Conference on Applications of Computer Vision (WACV) 2027. 33 pages, 14 figures, and 23 tables</arxiv:comment>
+    <arxiv:primary_category term="cs.CV"/>
+    <author>
+      <name>Tianchen Guo</name>
+    </author>
+    <author>
+      <name>Tengyue Zhang</name>
+    </author>
+    <author>
+      <name>Chen Liu</name>
+    </author>
+    <author>
+      <name>Ling Chen</name>
+    </author>
+    <author>
+      <name>Xin Yu</name>
+    </author>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2610.31635v1</id>
+    <title>HiP3R: Hierarchical Pose Graphs for Long-Horizon 3D Reconstruction</title>
+    <updated>2026-10-22T17:51:10Z</updated>
+    <link href="https://arxiv.org/abs/2610.31635v1" rel="alternate" type="text/html"/>
+    <link href="https://arxiv.org/pdf/2610.31635v1" rel="related" type="application/pdf" title="pdf"/>
+    <summary>Feed-forward models accurately estimate camera motion and 3D geometry from short video windows. However, computational and memory costs prevent direct inference on sequences containing thousands of frames. Long videos must therefore be processed as overlapping chunks. This division produces independent local reconstructions with inconsistent coordinate frames and duplicate estimates of shared cameras. Achieving global consistency requires propagating constraints from adjacent overlaps and distant revisits across the sequence. This requirement naturally motivates pose graph optimization. However, the choice of graph level creates a trade-off. Chunk-level graphs efficiently resolve scale drift and close large loops. Yet, their rigid transformations cannot correct internal errors or conflicting frame predictions. Conversely, frame-level optimization offers local flexibility, but scaling it globally is computationally expensive and can break metric scale. HiP3R resolves this trade-off using a hierarchical pose graph. HiP3R first optimizes a robust chunk-level $\mathrm{Sim}(3)$ graph to establish the global layout and scale. It then holds this layout fixed and estimates one shared $\mathrm{SE}(3)$ camera per frame, turning overlapping window predictions into a single trajectory. Experiments across multiple benchmarks demonstrate the effectiveness of HiP3R in improving camera trajectories and 3D reconstruction. Our method applies to both chunk-based and streaming backends without additional training or fine-tuning. The codes are available at https://kkakkkka.github.io/HiP3R.</summary>
+    <category term="cs.CV" scheme="http://arxiv.org/schemas/atom"/>
+    <published>2026-10-22T17:51:10Z</published>
+    <arxiv:comment>Technical Report</arxiv:comment>
+    <arxiv:primary_category term="cs.CV"/>
+    <author>
+      <name>Zunnan Xu</name>
+    </author>
+    <author>
+      <name>Shangchen Zhou</name>
+    </author>
+    <author>
+      <name>Yihang Luo</name>
+    </author>
+    <author>
+      <name>Chen Change Loy</name>
+    </author>
+  </entry>
+</feed>
