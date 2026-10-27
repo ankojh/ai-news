@@ -8,7 +8,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-scroll-behavior="smooth">
-      <body>{children}</body>
+      {/* The in-app browser may add attributes to body before React hydrates. */}
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }
