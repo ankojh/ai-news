@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config';
 import { RunBudget } from '../budget';
-import { execute, all, settings, now } from '../db/client';
+import { execute, all, now } from '../db/client';
 import { cardView, visible } from '../db/queries';
 import { runAgent, trace } from './loop';
 import { prompt, assertNoNewNumbers } from './prompt';
@@ -14,7 +14,6 @@ export async function writeBriefing(
   budget: RunBudget,
   noAudio: boolean,
 ) {
-  const s = settings();
   const selected = all(
     'SELECT arxiv_id FROM selections WHERE run_id=? AND selected=1 ORDER BY priority',
     runId,
@@ -28,24 +27,31 @@ export async function writeBriefing(
       return c ? [cardView(c)] : [];
     })
     .slice(0, config.BRIEFING_SIZE);
+  // Read aloud as "October 27, 2026", not "2026-10-27".
+  const spoken = new Date(date).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
   if (!cards.length) return;
   const input = cards.map((c) => ({
     arxivId: c.arxiv_id,
     title: c.paper.title,
     claims: c.claims,
     tldr: c.tldr,
-    explanation: c.explanations.find((e) => e.audience === s.briefing_audience),
+    explanation: c.explanations.find((e) => e.audience === 'student'),
     could_not_verify: c.could_not_verify,
   }));
   const output = (await runAgent({
     agent: 'briefing',
     fast: true,
-    system: prompt('briefing', { date }).replace('{date}', date),
+    system: prompt('briefing', { date: spoken }).replace('{date}', spoken),
     initialUserMessage: JSON.stringify(input),
     runId,
     budget,
     maxToolCalls: 2,
-    maxTokens: 16000,
+    maxTokens: config.MAX_TOKENS_PER_PAPER,
     timeoutMs: config.RESEARCH_TIMEOUT_MS,
     tools: [
       {
@@ -58,7 +64,7 @@ export async function writeBriefing(
           const words = b.script.split(/\s+/).length;
           if (words < 250 || words > 350) throw new Error('Script must contain 250–350 words');
           if (
-            !b.script.startsWith(`This is your AI-generated research briefing for ${date}.`) ||
+            !b.script.startsWith(`This is your AI-generated research briefing for ${spoken}.`) ||
             !b.script.endsWith(
               "Claims are checked against the papers' own text; links are in the app.",
             )
@@ -86,7 +92,7 @@ export async function writeBriefing(
     randomUUID(),
     runId,
     date,
-    s.briefing_audience,
+    'student',
     output.title,
     output.script,
     markdown,

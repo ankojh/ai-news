@@ -6,19 +6,9 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
   if (!slug) redirect('/technology');
   const [section, id] = slug;
   if (
-    ![
-      'technology',
-      'education',
-      'industry',
-      'finance',
-      'paper',
-      'briefing',
-      'review',
-      'runs',
-      'metrics',
-      'settings',
-      'about',
-    ].includes(section) ||
+    !['technology', 'paper', 'briefing', 'review', 'runs', 'metrics', 'settings', 'about'].includes(
+      section,
+    ) ||
     slug.length > 2 ||
     (!['paper', 'briefing', 'runs'].includes(section) && id) ||
     (section === 'paper' && (!id || !/^\d{4}\.\d{4,5}$/.test(id)))

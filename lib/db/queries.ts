@@ -12,7 +12,7 @@ export type CardView = Row & {
   discussion: Row[];
   could_not_verify: string[];
   claims: Row[];
-  explanations: (Row & { glossary: Row[]; discussion_questions: string[] })[];
+  explanations: (Row & { glossary: Row[]; extras: Row })[];
   signals: Row[];
   trace: Row[];
 };
@@ -29,10 +29,13 @@ export function cardView(card: Row): CardView {
     discussion: json<Row[]>(card.discussion_json, []),
     could_not_verify: json<string[]>(card.could_not_verify_json, []),
     claims: all('SELECT * FROM claims WHERE card_id=? AND verified=1', card.id),
-    explanations: all('SELECT * FROM explanations WHERE card_id=?', card.id).map((e) => ({
+    explanations: all(
+      "SELECT * FROM explanations WHERE card_id=? AND audience='student'",
+      card.id,
+    ).map((e) => ({
       ...e,
       glossary: json<Row[]>(e.glossary_json, []),
-      discussion_questions: json<string[]>(e.discussion_questions_json, []),
+      extras: json<Row>(e.extras_json, {}),
     })),
     signals: all(
       'SELECT * FROM signals WHERE arxiv_id=? ORDER BY observed_at DESC LIMIT 40',
@@ -41,6 +44,13 @@ export function cardView(card: Row): CardView {
     trace: all('SELECT * FROM agent_steps WHERE card_id=? ORDER BY id', card.id),
   };
 }
+// Sample cards from `npm run demo` step aside once a real agent run has produced an edition.
+export const hasRealRun = () =>
+  !!one(
+    "SELECT 1 FROM runs WHERE trigger<>'fixture-preview' AND status IN ('success','partial') AND cards_created>0",
+  );
+export const showingPreview = () =>
+  !!one("SELECT 1 FROM runs WHERE trigger='fixture-preview'") && !hasRealRun();
 export function visible(card: Row) {
   return (
     card.status === 'approved' || (card.status === 'draft' && settings().review_mode === 'personal')
@@ -61,6 +71,12 @@ export function feed(
     `SELECT c.* FROM cards c WHERE c.status IN ('draft','approved') AND EXISTS (SELECT 1 FROM selections s JOIN runs r ON r.id=s.run_id WHERE s.arxiv_id=c.arxiv_id AND s.selected=1 AND coalesce(r.edition_date,substr(r.started_at,1,10))=?) ORDER BY c.created_at DESC`,
     date,
   ).filter(visible);
+  if (hasRealRun()) {
+    const preview = new Set(
+      all("SELECT id FROM runs WHERE trigger='fixture-preview'").map((r) => r.id),
+    );
+    cards = cards.filter((c) => !preview.has(c.run_id));
+  }
   const seen = new Set<string>();
   cards = cards.filter((c) => {
     const id = String(c.arxiv_id);
@@ -133,7 +149,10 @@ export function getBriefing(date = 'latest') {
         title: one('SELECT title FROM papers WHERE arxiv_id=?', c.arxiv_id)?.title,
         status: c.status,
       })),
-    audio_url: b.audio_path ? `/api/audio/${encodeURIComponent(String(b.audio_path))}` : null,
+    // Same file name for a re-run on the same day, so version the URL to skip stale caches.
+    audio_url: b.audio_path
+      ? `/api/audio/${encodeURIComponent(String(b.audio_path))}?v=${encodeURIComponent(String(b.created_at))}`
+      : null,
   };
 }
 const scalar = (sql: string) => Number(one(sql)?.value || 0);

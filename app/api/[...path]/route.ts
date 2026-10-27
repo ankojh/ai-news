@@ -6,9 +6,18 @@ import { z } from 'zod';
 import { config } from '@/lib/config';
 import { codexStatus } from '@/lib/agents/codex';
 import { db, all, one, insert, execute, now, settings, setSettings } from '@/lib/db/client';
-import { feed, paperDetail, runDetail, metrics, getBriefing, cardView } from '@/lib/db/queries';
+import {
+  feed,
+  paperDetail,
+  runDetail,
+  metrics,
+  getBriefing,
+  cardView,
+  showingPreview,
+} from '@/lib/db/queries';
 import { createRun, executeRun, RunConflict } from '@/lib/run';
 import { arxivIdSchema, audienceSchema } from '@/lib/schemas';
+import { getFirstFigure } from '@/lib/sources/arxivHtml';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 function admin(request: NextRequest) {
@@ -44,6 +53,13 @@ function targetExists(type: string, id: string) {
     table && one(`SELECT 1 FROM ${table} WHERE ${type === 'explanation' ? 'card_id' : 'id'}=?`, id)
   );
 }
+const sameHost = (origin: string) => {
+  try {
+    return new URL(origin).host;
+  } catch {
+    return null;
+  }
+};
 async function handler(request: NextRequest) {
   try {
     const parts = request.nextUrl.pathname
@@ -53,8 +69,10 @@ async function handler(request: NextRequest) {
       route = parts[0],
       method = request.method;
     if (method !== 'GET') {
+      // Compare against the Host header: Next reports localhost even when served on 127.0.0.1.
       const origin = request.headers.get('origin');
-      if (origin && origin !== request.nextUrl.origin)
+      const host = request.headers.get('host') || request.nextUrl.host;
+      if (origin && sameHost(origin) !== host)
         throw new HttpError(403, 'Cross-origin writes are not allowed');
       if (Number(request.headers.get('content-length') || 0) > 24000)
         throw new HttpError(413, 'Request too large');
@@ -74,9 +92,7 @@ async function handler(request: NextRequest) {
       if (route === 'feed') {
         const q = z
           .object({
-            category: z
-              .enum(['technology', 'education', 'industry', 'finance'])
-              .default('technology'),
+            category: z.enum(['technology']).default('technology'),
             date: z.iso.date().optional(),
             sort: z.enum(['picks', 'discussed', 'newest']).default('picks'),
             boldOnly: z.enum(['true', 'false']).optional(),
@@ -84,6 +100,11 @@ async function handler(request: NextRequest) {
           })
           .parse(Object.fromEntries(request.nextUrl.searchParams));
         return send(feed({ ...q, boldOnly: q.boldOnly === 'true' }));
+      }
+      if (route === 'papers' && parts[2] === 'figure') {
+        const id = arxivIdSchema.parse(parts[1]);
+        if (!paperDetail(id.replace(/v\d+$/, ''))) throw new HttpError(404, 'Paper not found');
+        return send(await getFirstFigure(id).catch(() => null));
       }
       if (route === 'papers' && parts[1]) {
         const id = arxivIdSchema.parse(parts[1]).replace(/v\d+$/, '');
@@ -116,7 +137,7 @@ async function handler(request: NextRequest) {
           pricesConfigured: true,
           agentModel: config.CODEX_MODEL_AGENT,
           fastModel: config.CODEX_MODEL_FAST,
-          demo: !!one("SELECT 1 FROM runs WHERE trigger='fixture-preview'"),
+          demo: showingPreview(),
           dates: all(
             "SELECT DISTINCT coalesce(edition_date,substr(started_at,1,10)) date FROM runs WHERE status IN ('success','partial') ORDER BY date DESC",
           ),
@@ -131,17 +152,41 @@ async function handler(request: NextRequest) {
           (b) => !!getBriefing(String(b.date)),
         );
         if (!briefing) throw new HttpError(404, 'Audio unavailable');
+        let audio: Buffer;
         try {
-          return new NextResponse(await readFile(path.resolve(config.AUDIO_DIR, file)), {
-            headers: {
-              'Content-Type': 'audio/mpeg',
-              'Cache-Control': 'private, max-age=3600',
-              'X-Content-Type-Options': 'nosniff',
-            },
-          });
+          audio = await readFile(path.resolve(config.AUDIO_DIR, file));
         } catch {
           throw new HttpError(404, 'Audio file not found');
         }
+        const headers = {
+          'Content-Type': 'audio/mpeg',
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'private, max-age=3600',
+          'X-Content-Type-Options': 'nosniff',
+        };
+        // Browsers (Safari in particular) request byte ranges to play and seek audio.
+        const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get('range') || '');
+        if (range && (range[1] || range[2])) {
+          const size = audio.length;
+          const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+          const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+          if (start >= size || start > end)
+            return new NextResponse(null, {
+              status: 416,
+              headers: { 'Content-Range': `bytes */${size}` },
+            });
+          return new NextResponse(new Uint8Array(audio.subarray(start, end + 1)), {
+            status: 206,
+            headers: {
+              ...headers,
+              'Content-Range': `bytes ${start}-${end}/${size}`,
+              'Content-Length': String(end - start + 1),
+            },
+          });
+        }
+        return new NextResponse(new Uint8Array(audio), {
+          headers: { ...headers, 'Content-Length': String(audio.length) },
+        });
       }
     }
     if (method === 'POST' && route === 'runs') {
@@ -221,7 +266,6 @@ async function handler(request: NextRequest) {
         .object({
           topics: z.array(z.string().trim().min(1).max(60)).min(1).max(15),
           review_mode: z.enum(['personal', 'required']),
-          briefing_audience: audienceSchema,
           max_papers_per_run: z.number().int().min(1).max(config.MAX_PAPERS_PER_RUN),
         })
         .strict()

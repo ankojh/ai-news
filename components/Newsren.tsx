@@ -4,36 +4,30 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ArrowUpRight,
   ArrowRight,
+  ArrowUpRight,
   BookOpen,
+  GraduationCap,
+  KeyRound,
+  Target,
   Check,
   ChevronDown,
+  Lightbulb,
+  ScanSearch,
+  ShieldCheck,
+  TrendingUp,
   Compass,
-  ExternalLink,
-  Flag,
-  Headphones,
-  Layers,
   LoaderCircle,
   Menu,
   Moon,
   Play,
   Plus,
-  Radio,
-  Settings2,
-  ShieldCheck,
-  SlidersHorizontal,
   Sun,
-  ThumbsDown,
-  ThumbsUp,
   X,
-  Zap,
 } from 'lucide-react';
 // JSON response fields vary across feed, run, and evaluation views.
 type Row = Record<string, any>;
 type Feedback = (type: string, id: string, value: string) => Promise<boolean>;
-type Audience = 'student' | 'educator' | 'professional';
-const audiences: Audience[] = ['student', 'educator', 'professional'];
 const dateLabel = (date: string, short = false) =>
   date
     ? new Date(date).toLocaleDateString('en-US', {
@@ -48,16 +42,65 @@ const money = (value: unknown) =>
 const percent = (value: unknown) =>
   value == null ? 'Not measured' : `${Math.round(Number(value) * 100)}%`;
 const friendly: Record<string, string> = {
-  get_paper_metadata: 'Read primary-source metadata',
-  get_full_text: 'Inspected paper sections',
-  get_hn_discussion: 'Read community discussion',
-  verify_quote: 'Checked a quote against its source',
-  submit_card: 'Submitted the evidence card',
-  post_verify_drop: 'Dropped unsupported material',
-  submit_explanation: 'Prepared an audience explanation',
-  model_call: 'Planned the next research step',
-  budget_warning: 'Budget nearly exhausted',
+  get_paper_metadata: 'Read the paper’s details on arXiv',
+  get_full_text: 'Read sections of the paper',
+  get_hn_discussion: 'Read the Hacker News discussion',
+  verify_quote: 'Checked a quote against the paper',
+  submit_card: 'Wrote the evidence card',
+  post_verify_drop: 'Removed a claim it couldn’t back up',
+  submit_explanation: 'Wrote the student explanation',
+  model_call: 'Planned the next step',
+  budget_warning: 'Budget nearly used up',
   reuse_card: 'Reused an existing card',
+};
+const difficulty: Record<string, string> = {
+  beginner: 'Beginner',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced',
+};
+const studentView = (card: Row) => {
+  const e: Row | undefined = card.explanations?.find((x: Row) => x.audience === 'student');
+  return { e, x: (e?.extras || {}) as Row };
+};
+const readMinutes = (card: Row) => {
+  const { e, x } = studentView(card);
+  const words = [
+    x.one_liner,
+    e?.body,
+    x.analogy,
+    x.why_it_matters,
+    ...(x.key_takeaways || []),
+    ...(x.how_it_works || []).map((step: Row) => step.detail),
+    ...(x.learn_first || []).map((item: Row) => item.why),
+  ]
+    .join(' ')
+    .split(/\s+/).length;
+  return Math.max(2, Math.round(words / 150) + 1);
+};
+// Readable quote location: "S4" → "section 4".
+const where = (location = '') =>
+  /^S\d+$/.test(location)
+    ? `section ${location.slice(1)}`
+    : /^abstract$/i.test(location)
+      ? 'the abstract'
+      : location.toLowerCase();
+const paragraphs = (text = '') => text.split(/\n+/).filter(Boolean);
+const publication = (paper: Row) =>
+  paper.pub_status === 'published'
+    ? `Published in ${paper.journal_ref}`
+    : paper.pub_status === 'accepted_author_stated'
+      ? 'Accepted (per the authors)'
+      : 'Preprint';
+// Short, quiet context line shared by the list and the paper page.
+const metaLine = (card: Row, topics = 1) => {
+  const { x } = studentView(card);
+  return [
+    ...(card.topics || []).slice(0, topics),
+    x.difficulty && difficulty[x.difficulty],
+    `${readMinutes(card)} min read`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 };
 
 async function request(path: string, options: RequestInit = {}, token = '') {
@@ -73,9 +116,8 @@ async function request(path: string, options: RequestInit = {}, token = '') {
 export default function Newsren() {
   const pathname = usePathname(),
     [section, id] = pathname.split('/').filter(Boolean);
-  const [audience, setAudience] = useState<Audience>('professional');
   const [dark, setDark] = useState(false),
-    [mobile, setMobile] = useState(false);
+    [menu, setMenu] = useState(false);
   const [data, setData] = useState<Row>({}),
     [status, setStatus] = useState<Row>({}),
     [loading, setLoading] = useState(true),
@@ -83,20 +125,13 @@ export default function Newsren() {
     [notice, setNotice] = useState('');
   const [sort, setSort] = useState('picks'),
     [date, setDate] = useState(''),
-    [boldOnly, setBoldOnly] = useState(false),
     [token, setToken] = useState('');
   const loadVersion = useRef(0);
   useEffect(() => {
-    const saved = localStorage.getItem('newsren-audience');
-    if (audiences.includes(saved as Audience)) setAudience(saved as Audience);
     const theme = localStorage.getItem('newsren-theme') === 'dark';
     setDark(theme);
     document.documentElement.classList.toggle('dark', theme);
   }, []);
-  const chooseAudience = (next: Audience) => {
-    setAudience(next);
-    localStorage.setItem('newsren-audience', next);
-  };
   const toggleTheme = () => {
     const next = !dark;
     setDark(next);
@@ -110,11 +145,7 @@ export default function Newsren() {
       setError('');
       try {
         const statusPromise = request('/api/status');
-        const query = new URLSearchParams({
-          sort,
-          boldOnly: String(boldOnly),
-          ...(date ? { date } : {}),
-        });
+        const query = new URLSearchParams({ sort, ...(date ? { date } : {}) });
         const url =
           section === 'technology'
             ? `/api/feed?${query}`
@@ -142,11 +173,11 @@ export default function Newsren() {
         if (version === loadVersion.current) setLoading(false);
       }
     },
-    [pathname, section, id, sort, date, boldOnly, token],
+    [pathname, section, id, sort, date, token],
   );
   useEffect(() => {
     load();
-    setMobile(false);
+    setMenu(false);
   }, [load]);
   useEffect(() => {
     if (section !== 'runs') return;
@@ -161,7 +192,7 @@ export default function Newsren() {
   const action = async (path: string, body: unknown, method = 'POST') => {
     try {
       const result = await request(path, { method, body: JSON.stringify(body) }, token);
-      setNotice('Saved. Thank you.');
+      setNotice('Saved.');
       await load(true);
       return result;
     } catch (e) {
@@ -169,379 +200,200 @@ export default function Newsren() {
       throw e;
     }
   };
+  const refresh = useCallback(() => load(true), [load]);
   const feedback = (type: string, targetId: string, value: string) =>
     action('/api/feedback', { targetType: type, targetId, value })
       .then(() => true)
       .catch(() => false);
   const cards = section === 'technology' && Array.isArray(data.value) ? data.value : [];
   const pageTitles: Record<string, string> = {
-    review: 'The editor’s desk',
-    runs: 'Inside the newsroom',
-    metrics: 'Trust, measured.',
-    settings: 'Make it your briefing.',
-    about: 'A little less noise. A lot more evidence.',
+    review: 'Review queue',
+    runs: 'Agent runs',
+    metrics: 'Trust & metrics',
+    settings: 'Settings',
   };
-  const latest = status.latestBriefing;
+  const edition = date || status.dates?.[0]?.date;
   const pending = loading || data.path !== pathname;
+  const nav = [
+    ['/technology', 'AI & Technology', section === 'technology' || section === 'paper'],
+    ['/briefing/latest', 'Listen', section === 'briefing'],
+    ['/about', 'About', section === 'about'],
+  ] as const;
   return (
     <>
-      <div className="topline">
-        <span>INDEPENDENT THINKING. PRIMARY SOURCES.</span>
-        <span>
-          <i className="live-dot" /> YOUR AI RESEARCH READING DESK
-        </span>
-      </div>
-      <header className="masthead">
-        <Link href="/technology" className="wordmark">
-          <span className="brand-icon">
-            <Compass size={26} strokeWidth={1.4} />
-          </span>
-          The Newsren<span className="wordmark-dot">.</span>
-        </Link>
-        <div className="edition">
-          <span>THE RESEARCH EDITION</span>
-          <span>Attention is a signal. Evidence is the story.</span>
-        </div>
-        <div className="header-actions">
-          <button
-            className="icon-button"
-            aria-label={dark ? 'Use light theme' : 'Use dark theme'}
-            onClick={toggleTheme}
-          >
-            {dark ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-          <Link href="/runs" className="button small">
-            <Radio size={15} /> Newsroom
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
+      <header className={`paper-head ${section === 'technology' ? '' : 'compact'}`}>
+        <div className="paper-top">
+          <span className="paper-date">{longDate(edition)}</span>
+          <Link className="paper-top-link" href="/briefing/latest">
+            Listen to today’s briefing
           </Link>
-          <button
-            className="icon-button mobile-menu"
-            aria-label="Toggle navigation"
-            onClick={() => setMobile(!mobile)}
-          >
-            <Menu size={20} />
-          </button>
-        </div>
-      </header>
-      <nav className="category-nav" aria-label="News categories">
-        <div>
-          {['technology', 'education', 'industry', 'finance'].map((name) => (
-            <Link
-              key={name}
-              href={`/${name}`}
-              className={
-                section === name || (section === 'paper' && name === 'technology') ? 'active' : ''
-              }
+          <div className="header-tools">
+            <button
+              className="icon-button"
+              aria-label={dark ? 'Use light theme' : 'Use dark theme'}
+              onClick={toggleTheme}
             >
-              {name}
-              {name === 'technology' && <span className="nav-dot" />}
+              {dark ? <Sun size={17} strokeWidth={1.5} /> : <Moon size={17} strokeWidth={1.5} />}
+            </button>
+            <button
+              className="icon-button"
+              aria-label="More"
+              aria-expanded={menu}
+              onClick={() => setMenu(!menu)}
+            >
+              {menu ? <X size={18} strokeWidth={1.5} /> : <Menu size={18} strokeWidth={1.5} />}
+            </button>
+          </div>
+        </div>
+        <Link href="/technology" className="nameplate">
+          The Newsren
+        </Link>
+        <p className="motto">AI research news, explained for students</p>
+        <nav className="section-nav" aria-label="Main">
+          {nav.map(([href, label, active]) => (
+            <Link key={href} href={href} aria-current={active ? 'page' : undefined}>
+              {label}
             </Link>
           ))}
-        </div>
-        <span className="nav-note">
-          <ShieldCheck size={14} /> Built around the evidence
-        </span>
-      </nav>
-      <div className="workspace">
-        <aside className={`sidebar ${mobile ? 'mobile-open' : ''}`}>
-          <p className="eyebrow">YOUR READING DESK</p>
-          <Link
-            className={section === 'technology' ? 'side-link selected' : 'side-link'}
-            href="/technology"
-          >
-            <BookOpen size={17} /> The daily read <ArrowRight size={14} />
-          </Link>
-          <Link
-            className={section === 'briefing' ? 'side-link selected' : 'side-link'}
-            href="/briefing/latest"
-          >
-            <Headphones size={17} /> Today’s briefing
-          </Link>
-          <p className="eyebrow sidebar-heading">IN THE NEWSROOM</p>
-          {[
-            ['review', 'Review queue', ShieldCheck],
-            ['runs', 'Agent runs', Radio],
-            ['metrics', 'Trust & metrics', Layers],
-            ['settings', 'Preferences', Settings2],
-          ].map(([route, label, Icon]) => {
-            const I = Icon as typeof Radio;
-            return (
-              <Link
-                key={String(route)}
-                className={section === route ? 'side-link selected' : 'side-link'}
-                href={`/${route}`}
-              >
-                <I size={17} />
-                {String(label)}
-              </Link>
-            );
-          })}
-          <div className="sidebar-note">
-            <span className="tiny-star">✳</span>
-            <p>
-              A trending paper isn’t
-              <br />
-              the same as a proven idea.
-            </p>
-            <Link href="/about">
-              How we check the story <ArrowUpRight size={13} />
-            </Link>
-          </div>
-          <div className="sidebar-bottom">
-            <span className="live-dot" />
-            {status.configured ? 'Agents configured' : 'Local reading desk'}
-            <Link href="/about">
-              About The Newsren <ArrowUpRight size={12} />
-            </Link>
-          </div>
-        </aside>
-        <main id="main-content" className="main-content">
-          {section === 'finance' && (
-            <div className="notice finance-notice">
-              Informational and educational content only. Not investment advice. The Newsren does
-              not provide buy/sell/hold recommendations, price targets, or trade execution.
-            </div>
-          )}
-          {status.demo && (
-            <div className="demo-banner">
-              <span>FIXTURE PREVIEW</span> Real source excerpts, sample cards. No live agent
-              research or independent evaluation has been performed.
-            </div>
-          )}
-          {section === 'technology' ? (
-            <>
-              <div className="page-kicker">
-                <span className="eyebrow">THE DAILY READ</span>
-                <span className="muted">AI RESEARCH / TECHNOLOGY</span>
-              </div>
-              <div className="hero">
-                <h1>
-                  Beyond the buzz.
-                  <br />
-                  <em>Into the evidence.</em>
-                </h1>
-                <p>
-                  Understand the next AI breakthrough: compare what’s trending
-                  <br className="desktop-break" /> with what the paper actually shows.
-                </p>
-                <span className="hero-mark" aria-hidden="true">
-                  ✳
+        </nav>
+        {menu && (
+          <nav className="more-menu" aria-label="More">
+            <Link href="/runs">Agent runs</Link>
+            <Link href="/review">Review queue</Link>
+            <Link href="/metrics">Trust & metrics</Link>
+            <Link href="/settings">Settings</Link>
+          </nav>
+        )}
+      </header>
+      <main id="main-content" className="shell">
+        {status.demo && (
+          <p className="preview-note">
+            Preview data: sample cards from real abstracts, not yet explained by the AI.
+          </p>
+        )}
+        {section === 'technology' ? (
+          <section className="front" aria-labelledby="front-heading">
+            <div className="front-bar">
+              <h1 id="front-heading">
+                Today’s AI research news, explained.{' '}
+                <span>
+                  Picked from what researchers are upvoting and debating; every claim checked
+                  against the paper itself.
                 </span>
-              </div>
-              <div className="reading-controls">
-                <div className="audience-label">
-                  <SlidersHorizontal size={16} />
-                  <span>Explain for</span>
-                </div>
-                <AudienceToggle audience={audience} onChange={chooseAudience} />
-                <span className="instant-note">Same evidence. Your perspective.</span>
-              </div>
-              <div className="feed-grid">
-                <div className="feed-column">
-                  <div className="feed-toolbar">
-                    <h2>
-                      On our radar <span>{cards.length.toString().padStart(2, '0')}</span>
-                    </h2>
-                    <div className="filters">
-                      <select
-                        aria-label="Run date"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                      >
-                        <option value="">Latest edition</option>
-                        {status.dates?.map((d: Row) => (
-                          <option key={d.date} value={d.date}>
-                            {dateLabel(d.date, true)}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        aria-label="Sort papers"
-                        value={sort}
-                        onChange={(e) => setSort(e.target.value)}
-                      >
-                        <option value="picks">Editor’s picks</option>
-                        <option value="discussed">Most discussed</option>
-                        <option value="newest">Newest</option>
-                      </select>
-                    </div>
-                  </div>
-                  <label className="bold-filter">
-                    <input
-                      type="checkbox"
-                      checked={boldOnly}
-                      onChange={(e) => setBoldOnly(e.target.checked)}
-                    />{' '}
-                    Bold claims only <Zap size={12} />
-                  </label>
-                  {pending ? (
-                    <Loading />
-                  ) : error ? (
-                    <ErrorPanel error={error} />
-                  ) : cards.length ? (
-                    cards.map((card: Row, index: number) => (
-                      <PaperCard
-                        key={card.id}
-                        card={card}
-                        index={index}
-                        audience={audience}
-                        feedback={feedback}
-                      />
-                    ))
-                  ) : (
-                    <Empty
-                      title={
-                        boldOnly
-                          ? 'No bold claims in this edition.'
-                          : 'Your next deep dive starts here.'
-                      }
-                      text={
-                        status.reviewMode === 'required'
-                          ? 'New cards appear here after approval in the review queue.'
-                          : 'Run the research agents to turn today’s attention signals into evidence cards. Sign in with codex login first, or load the offline preview with npm run demo.'
-                      }
-                    >
-                      <Link className="button primary" href="/runs">
-                        Open the newsroom <ArrowRight size={15} />
-                      </Link>
-                    </Empty>
-                  )}
-                </div>
-                <aside className="reading-aside">
-                  <BriefingTeaser briefing={latest} />
-                  <div className="evidence-note">
-                    <ShieldCheck size={25} />
-                    <h3>“Verified” has a meaning.</h3>
-                    <p>
-                      We check that every claim’s quote appears in the paper. That’s
-                      faithfulness—not independent confirmation.
-                    </p>
-                    <Link href="/about">
-                      See how it works <ArrowUpRight size={14} />
-                    </Link>
-                    <div className="note-rule" />
-                    <span>
-                      THE AUTHORS REPORT.
-                      <br />
-                      YOU STAY CURIOUS.
-                    </span>
-                  </div>
-                  <div className="roadmap-teaser">
-                    <span className="eyebrow">COMING INTO FOCUS</span>
-                    <h3>
-                      Follow an idea,
-                      <br />
-                      not just a headline.
-                    </h3>
-                    <p>Connected stories and topic monitoring are on our roadmap.</p>
-                    <span className="pill">On the horizon</span>
-                  </div>
-                </aside>
-              </div>
-            </>
-          ) : ['education', 'industry', 'finance'].includes(section) ? (
-            <>
-              <div className="page-kicker">
-                <span className="eyebrow">THE NEXT CHAPTER</span>
-                <span className="pill">Roadmap</span>
-              </div>
-              <h1 className="page-title capitalize">
-                {section},<br />
-                <em>with a closer look.</em>
               </h1>
-              <Empty
-                title="Good research takes focus."
-                text="This vertical is part of The Newsren plan but outside this MVP’s scope. The same pipeline—approved sources, research, verified cards, and explanations—applies."
-              >
-                <div className="planned-features">
-                  {(section === 'education'
-                    ? ['Education Evidence Checker', 'Policy Impact Explorer']
-                    : section === 'industry'
-                      ? ['Company and Competitor Watch', 'Supply-Chain Ripple Map']
-                      : ['Financial Literacy Explainers', 'Evidence & Risk Context']
-                  ).map((x) => (
-                    <span className="pill" key={x}>
-                      {x}
-                    </span>
+              <div className="list-controls">
+                <select aria-label="Edition" value={date} onChange={(e) => setDate(e.target.value)}>
+                  <option value="">Latest edition</option>
+                  {status.dates?.map((d: Row) => (
+                    <option key={d.date} value={d.date}>
+                      {dateLabel(d.date, true)}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  aria-label="Sort stories"
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                >
+                  <option value="picks">Editor’s picks</option>
+                  <option value="discussed">Most discussed</option>
+                  <option value="newest">Newest</option>
+                </select>
+              </div>
+            </div>
+            <div className="front-grid">
+              <div className="front-lead">
+                {pending ? (
+                  <Loading />
+                ) : error ? (
+                  <ErrorPanel error={error} />
+                ) : cards.length ? (
+                  <Story card={cards[0]} variant="lead" />
+                ) : (
+                  <Empty
+                    title="No stories yet."
+                    text={
+                      status.reviewMode === 'required'
+                        ? 'New stories appear here after approval in the review queue.'
+                        : 'Run the AI agents to report on today’s trending papers.'
+                    }
+                  />
+                )}
+              </div>
+              <aside className="front-rail">
+                <RunPanel status={status} token={token} onFinished={refresh} />
+                {!pending &&
+                  cards
+                    .slice(1, 3)
+                    .map((card: Row) => <Story key={card.id} card={card} variant="rail" />)}
+              </aside>
+            </div>
+            {!pending && cards.length > 3 && (
+              <>
+                <h2 className="section-rule">
+                  <span>More top stories</span>
+                </h2>
+                <div className="story-grid">
+                  {cards.slice(3).map((card: Row) => (
+                    <Story key={card.id} card={card} variant="standard" />
                   ))}
                 </div>
-                <Link href="/technology" className="text-link">
-                  Read the Technology edition <ArrowRight size={16} />
-                </Link>
-              </Empty>
-            </>
-          ) : (
-            <>
-              <div className="page-kicker">
-                <span className="eyebrow">
-                  THE NEWSREN / {section === 'paper' ? 'PAPER DECODER' : section?.toUpperCase()}
-                </span>
-                <Link className="text-link" href="/technology">
-                  Back to the daily read <ArrowUpRight size={14} />
-                </Link>
+              </>
+            )}
+            <h2 className="section-rule">
+              <span>How we report</span>
+            </h2>
+            <HowItWorks />
+          </section>
+        ) : (
+          <>
+            {pageTitles[section] && (
+              <div className="page-head">
+                <h1>{pageTitles[section]}</h1>
               </div>
-              {pageTitles[section] && <h1 className="page-title">{pageTitles[section]}</h1>}
-              {section === 'about' ? (
-                <About />
-              ) : pending ? (
-                <Loading />
-              ) : error ? (
-                <ErrorPanel error={error} />
-              ) : section === 'paper' && data.value ? (
-                <>
-                  <div className="reading-controls">
-                    <span>Explain for</span>
-                    <AudienceToggle audience={audience} onChange={chooseAudience} />
-                  </div>
-                  <PaperCard
-                    card={data.value}
-                    index={0}
-                    audience={audience}
-                    feedback={feedback}
-                    full
-                  />
-                </>
-              ) : section === 'briefing' ? (
-                <Briefing briefing={data.value} feedback={feedback} />
-              ) : section === 'runs' ? (
-                id ? (
-                  <RunDetail run={data.value} />
-                ) : (
-                  <Runs runs={data.value || []} status={status} action={action} />
-                )
-              ) : section === 'review' ? (
-                <Review
-                  cards={data.value || []}
-                  audience={audience}
-                  feedback={feedback}
-                  action={action}
-                />
-              ) : section === 'metrics' ? (
-                <Metrics data={data.value} action={action} />
-              ) : section === 'settings' ? (
-                <Preferences data={data.value} token={token} setToken={setToken} action={action} />
+            )}
+            {section === 'about' ? (
+              <About />
+            ) : pending ? (
+              <Loading />
+            ) : error ? (
+              <ErrorPanel error={error} />
+            ) : section === 'paper' && data.value ? (
+              <PaperLesson card={data.value} feedback={feedback} />
+            ) : section === 'briefing' ? (
+              <Briefing briefing={data.value} feedback={feedback} />
+            ) : section === 'runs' ? (
+              id ? (
+                <RunDetail run={data.value} />
               ) : (
-                <Empty
-                  title="This page isn’t on the reading desk."
-                  text="Return to Technology for today’s edition."
-                />
-              )}
-            </>
-          )}
-          <footer>
-            <span className="footer-wordmark">The Newsren.</span>
-            <p>
-              Summaries are AI-generated. Claims are checked word for word against each paper’s own
-              text; they are not independently confirmed. Always read the source.
-            </p>
-            <div>
-              <Link href="/about">About</Link>
-              <Link href="/runs">Runs</Link>
-              <Link href="/metrics">Metrics</Link>
-              <Link href="/settings">Settings</Link>
-            </div>
-          </footer>
-        </main>
-      </div>
+                <Runs runs={data.value || []} status={status} action={action} />
+              )
+            ) : section === 'review' ? (
+              <Review cards={data.value || []} feedback={feedback} action={action} />
+            ) : section === 'metrics' ? (
+              <Metrics data={data.value} action={action} />
+            ) : section === 'settings' ? (
+              <Preferences data={data.value} token={token} setToken={setToken} action={action} />
+            ) : (
+              <Empty title="Page not found." text="Go back to today’s papers." />
+            )}
+          </>
+        )}
+        <footer className="site-footer">
+          <p>
+            Summaries are AI-generated. Claims are matched word for word to each paper; they are not
+            independently confirmed. Always read the source.
+          </p>
+          <nav aria-label="Footer">
+            <Link href="/about">About</Link>
+            <Link href="/metrics">Metrics</Link>
+            <Link href="/settings">Settings</Link>
+          </nav>
+        </footer>
+      </main>
       {notice && (
         <div className="toast" role="status">
           {notice}
@@ -554,32 +406,10 @@ export default function Newsren() {
   );
 }
 
-function AudienceToggle({
-  audience,
-  onChange,
-}: {
-  audience: Audience;
-  onChange: (a: Audience) => void;
-}) {
-  return (
-    <div className="segmented" aria-label="Explanation audience">
-      {audiences.map((a) => (
-        <button
-          key={a}
-          aria-pressed={audience === a}
-          className={a === audience ? 'active' : ''}
-          onClick={() => onChange(a)}
-        >
-          {a}
-        </button>
-      ))}
-    </div>
-  );
-}
 function Loading() {
   return (
     <div className="loading">
-      <LoaderCircle size={20} className="spin" /> Opening the reading desk…
+      <LoaderCircle size={18} className="spin" /> Loading…
     </div>
   );
 }
@@ -589,7 +419,7 @@ function ErrorPanel({ error }: { error: string }) {
       <strong>We couldn’t complete that.</strong>
       <p>{error}</p>
       <Link href="/settings">
-        Open preferences <ArrowUpRight size={14} />
+        Open settings <ArrowUpRight size={14} />
       </Link>
     </div>
   );
@@ -605,235 +435,575 @@ function Empty({
 }) {
   return (
     <div className="empty">
-      <Compass size={35} strokeWidth={1} />
+      <Compass size={28} strokeWidth={1} />
       <h2>{title}</h2>
       <p>{text}</p>
       {children}
     </div>
   );
 }
-function Labels({ card }: { card: Row }) {
-  return (
-    <div className="labels">
-      <span className="pill">
-        {card.paper.pub_status === 'published'
-          ? `Published: ${card.paper.journal_ref}`
-          : card.paper.pub_status === 'accepted_author_stated'
-            ? 'Accepted (per authors)'
-            : 'Preprint · not peer-reviewed'}
+const thumbnail = (id: string) =>
+  `https://cdn-thumbnails.huggingface.co/social-thumbnails/papers/${id}.png`;
+// Remote images from Hugging Face and arXiv; hidden when a paper has none.
+function Picture({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} />;
+}
+function SourceMark({ source }: { source: string }) {
+  if (source === 'hf')
+    return (
+      <span className="source-mark hf" aria-hidden="true">
+        🤗
       </span>
-      {card.claims.some((c: Row) => c.is_bold === 1) && (
-        <span className="pill amber">
-          <Zap size={11} /> Bold claim
-        </span>
-      )}
-      {card.paper.html_available === 0 && <span className="pill">Abstract only</span>}
-      {card.low_evidence === 1 && <span className="pill amber">No verified claims</span>}
-      {card.status === 'draft' && (
-        <span className="pill subtle">AI-generated, not editor-reviewed</span>
-      )}
-    </div>
+    );
+  if (source === 'hn')
+    return (
+      <span className="source-mark hn" aria-hidden="true">
+        Y
+      </span>
+    );
+  return (
+    <span className="source-mark arxiv" aria-hidden="true">
+      arXiv
+    </span>
   );
 }
-function PaperCard({
-  card,
-  index,
-  audience,
-  feedback,
-  full = false,
-  onOpen,
-}: {
-  card: Row;
-  index: number;
-  audience: Audience;
-  feedback: Feedback;
-  full?: boolean;
-  onOpen?: () => void;
-}) {
-  const [expanded, setExpanded] = useState(full),
-    [voted, setVoted] = useState('');
-  const p = card.paper,
-    e = card.explanations.find((e: Row) => e.audience === audience),
-    claim = card.claims[0];
-  const PaperHeading = full ? 'h1' : 'h2';
+function Signals({ card }: { card: Row }) {
   const signals: Row[] = card.signals.filter(
-    (s: Row, i: number, a: Row[]) => a.findIndex((x) => x.source === s.source) === i,
+    (s: Row, i: number, a: Row[]) => a.findIndex((y) => y.source === s.source) === i,
   );
   return (
-    <article className={`paper-card ${full ? 'full-card' : ''}`}>
-      <div className="card-top">
-        <span className="paper-number">
-          {String(index + 1).padStart(2, '0')} <span>/ RESEARCH NOTE</span>
-        </span>
-        <span>{dateLabel(p.published_at, true)}</span>
-      </div>
-      <Labels card={card} />
-      <PaperHeading className="paper-title">
-        <Link href={`/paper/${card.arxiv_id}`}>
-          {p.title}
-          <ArrowUpRight size={20} />
-        </Link>
-      </PaperHeading>
-      <div className="authors">
-        {p.authors.slice(0, 3).join(', ')}
-        {p.authors.length > 3 ? ' et al.' : ''}
-        <span>
-          {' '}
-          · arXiv {card.arxiv_id}
-          {card.paper_version}
-        </span>
-      </div>
-      <div className="signals">
-        {signals.map((s: Row) => (
-          <a key={s.source} href={s.url} target="_blank" rel="noreferrer">
-            {s.source === 'hf' ? (
-              <>
-                <span>▲</span> {s.score} on Hugging Face
-              </>
-            ) : (
-              <>
-                <span className="hn-mark">Y</span> {s.score} points / {s.num_comments} comments
-              </>
-            )}
-            <ArrowUpRight size={11} />
-          </a>
-        ))}
-      </div>
-      <div className="why-picked">
-        <span>WHY THIS PAPER</span>
-        <p>{card.selection_reason}</p>
-      </div>
-      <p className="card-tldr">
-        {e?.body
-          ? e.body
-              .split(/(?<=[.!?])\s+/)
-              .slice(0, 2)
-              .join(' ')
-          : card.tldr}
+    <p className="signals">
+      {signals.map((s: Row) => (
+        <a key={s.source} href={s.url} target="_blank" rel="noreferrer">
+          <SourceMark source={s.source} />
+          {s.source === 'hf'
+            ? `${s.score} upvotes on Hugging Face`
+            : `${s.score} points on Hacker News`}
+        </a>
+      ))}
+      <a
+        href={`https://arxiv.org/abs/${card.arxiv_id}${card.paper_version || ''}`}
+        target="_blank"
+        rel="noreferrer"
+      >
+        <SourceMark source="arxiv" />
+        Paper
+      </a>
+    </p>
+  );
+}
+function Difficulty({ level }: { level?: string }) {
+  const n = ['beginner', 'intermediate', 'advanced'].indexOf(level || '') + 1;
+  if (!n) return null;
+  return (
+    <span className="difficulty" title={`${difficulty[level!]} level`} aria-hidden="true">
+      {[1, 2, 3].map((i) => (
+        <i key={i} className={i <= n ? 'on' : ''} />
+      ))}
+    </span>
+  );
+}
+const stages = [
+  ['A', 'Find trending papers'],
+  ['B', 'Pick the most useful'],
+  ['C', 'Read and check claims'],
+  ['D', 'Write explanations'],
+  ['E', 'Write the briefing'],
+] as const;
+// Starts a daily run and follows its phases until it finishes.
+function RunPanel({
+  status,
+  token,
+  onFinished,
+}: {
+  status: Row;
+  token: string;
+  onFinished: () => void;
+}) {
+  const [run, setRun] = useState<Row | null>(null),
+    [limit, setLimit] = useState(3),
+    [audio, setAudio] = useState(true),
+    [starting, setStarting] = useState(false),
+    [error, setError] = useState('');
+  const running = run?.status === 'running';
+  useEffect(() => {
+    request('/api/runs')
+      .then((runs: Row[]) => {
+        const latest = runs.find((r) => r.trigger !== 'fixture-preview');
+        if (latest) return request(`/api/runs/${latest.id}`).then(setRun);
+      })
+      .catch(() => {});
+  }, []);
+  const runId = run?.id;
+  useEffect(() => {
+    if (!running || !runId) return;
+    const timer = setInterval(async () => {
+      try {
+        const next = await request(`/api/runs/${runId}`);
+        setRun(next);
+        if (next.status !== 'running') onFinished();
+      } catch {}
+    }, 2500);
+    return () => clearInterval(timer);
+  }, [running, runId, onFinished]);
+  const start = async () => {
+    setStarting(true);
+    setError('');
+    try {
+      const { id } = await request(
+        '/api/runs',
+        { method: 'POST', body: JSON.stringify({ limit, noAudio: !audio }) },
+        token,
+      );
+      setRun(await request(`/api/runs/${id}`));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not start the run');
+    } finally {
+      setStarting(false);
+    }
+  };
+  const phases: Row[] = run?.phases || [];
+  const stateOf = (letter: string) => {
+    const mine = phases.filter((p) => String(p.phase).startsWith(letter));
+    if (mine.some((p) => p.status === 'done')) return 'done';
+    if (mine.length) return 'active';
+    return run && run.status !== 'running' ? 'skipped' : 'waiting';
+  };
+  const detailOf = (letter: string) =>
+    phases.find((p) => String(p.phase).startsWith(letter) && p.detail)?.detail;
+  return (
+    <aside className="run-panel" aria-live="polite">
+      <p className="label">Today’s research</p>
+      <h2>Run the AI agents</h2>
+      <p className="run-panel-text">
+        The agents find trending papers, read them, check every claim against the paper and write a
+        student explanation. About a minute per paper.
       </p>
-      {claim && (
-        <div className="top-claim">
-          <span className="checkmark">
-            <Check size={14} />
-          </span>
-          <div>
-            <span className="eyebrow">QUOTE VERIFIED</span>
-            <p>{claim.text}</p>
-            <small>Author-reported · Not yet independently confirmed</small>
-          </div>
+      <div className="run-controls">
+        <label>
+          Papers
+          <select
+            value={limit}
+            disabled={running}
+            onChange={(e) => setLimit(Number(e.target.value))}
+          >
+            {[1, 3, 5].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={audio}
+            disabled={running}
+            onChange={(e) => setAudio(e.target.checked)}
+          />
+          Audio briefing
+        </label>
+      </div>
+      <button
+        className="run-button"
+        onClick={start}
+        disabled={running || starting || status.configured === false}
+      >
+        {running || starting ? (
+          <LoaderCircle size={17} className="spin" />
+        ) : (
+          <Play size={16} fill="currentColor" />
+        )}
+        {running ? 'Agents are working…' : starting ? 'Starting…' : 'Run the agents'}
+      </button>
+      {status.configured === false && (
+        <p className="run-warning">
+          {status.authMessage || 'Codex is not signed in.'} Run <code>codex login</code> in a
+          terminal first.
+        </p>
+      )}
+      {error && <p className="run-warning">{error}</p>}
+      {run && (
+        <div className="run-progress">
+          <ol>
+            {stages.map(([letter, label]) => {
+              const state = stateOf(letter);
+              return (
+                <li key={letter} className={state}>
+                  <span className="run-dot">
+                    {state === 'done' ? (
+                      <Check size={11} strokeWidth={3} />
+                    ) : state === 'active' && running ? (
+                      <LoaderCircle size={11} className="spin" />
+                    ) : null}
+                  </span>
+                  <span>
+                    {label}
+                    {detailOf(letter) && <small> · {detailOf(letter)}</small>}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+          <p className="meta">
+            {running
+              ? `Started ${new Date(run.started_at).toLocaleTimeString()}`
+              : `Last run ${dateLabel(run.started_at, true)}, ${new Date(run.started_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · ${run.status} · ${run.cards_created || 0} new paper${run.cards_created === 1 ? '' : 's'}`}{' '}
+            · <Link href={`/runs/${run.id}`}>Details</Link>
+          </p>
+          {run.error && <p className="run-warning">{run.error}</p>}
         </div>
       )}
-      <div className="card-bottom">
-        <button
-          className="expand-button"
-          aria-expanded={expanded}
-          onClick={() => {
-            if (!expanded) onOpen?.();
-            setExpanded(!expanded);
-          }}
-        >
-          {expanded ? 'Close the research note' : 'Read the evidence'}
-          <ChevronDown className={expanded ? 'rotated' : ''} size={16} />
-        </button>
-        <div className="feedback">
-          <span>Useful?</span>
-          {['up', 'down'].map((v) => (
-            <button
-              key={v}
-              className={voted === v ? 'selected' : ''}
-              disabled={!!voted}
-              aria-label={`Vote ${v}`}
-              onClick={async () => {
-                if (await feedback('card', card.id, v)) setVoted(v);
-              }}
-            >
-              {v === 'up' ? <ThumbsUp size={14} /> : <ThumbsDown size={14} />}
-            </button>
-          ))}
-        </div>
+    </aside>
+  );
+}
+function HowItWorks() {
+  const steps = [
+    [TrendingUp, 'Spot', 'Papers researchers are upvoting on Hugging Face and Hacker News.'],
+    [ScanSearch, 'Read', 'An agent goes back to the paper itself on arXiv.'],
+    [ShieldCheck, 'Check', 'Every claim is matched to a sentence in the paper.'],
+    [BookOpen, 'Explain', 'A plain-English summary, key words, and a quick quiz.'],
+  ] as const;
+  return (
+    <ol className="how" aria-label="How it works">
+      {steps.map(([Icon, title, text], i) => (
+        <li key={title}>
+          <span className="how-icon">
+            <Icon size={20} strokeWidth={1.6} />
+          </span>
+          <strong>
+            <span className="how-n">{i + 1}</span> {title}
+          </strong>
+          <p>{text}</p>
+        </li>
+      ))}
+    </ol>
+  );
+}
+// How far the evidence goes: claimed → matched in the paper → independently confirmed.
+function EvidenceLadder({ matched }: { matched: number }) {
+  const steps = [
+    ['done', 'The authors claim it', 'Reported in their paper'],
+    [
+      matched ? 'done' : 'open',
+      'We found it in the paper',
+      matched ? `${matched} claim${matched === 1 ? '' : 's'} matched word for word` : 'No match',
+    ],
+    ['open', 'Others confirmed it', 'Not yet tested by an outside team'],
+  ];
+  return (
+    <ol className="ladder" aria-label="How far the evidence goes">
+      {steps.map(([state, title, text]) => (
+        <li key={title} className={state}>
+          <span className="ladder-dot">
+            {state === 'done' && <Check size={13} strokeWidth={3} />}
+          </span>
+          <strong>{title}</strong>
+          <span>{text}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+// One request per paper, shared by the list thumbnail and the paper page.
+const figures = new Map<string, Promise<Row | null>>();
+function useFigure(id: string) {
+  const [figure, setFigure] = useState<Row | null | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    if (!figures.has(id))
+      figures.set(
+        id,
+        request(`/api/papers/${id}/figure`).catch(() => null),
+      );
+    figures.get(id)!.then((f) => live && setFigure(f));
+    return () => {
+      live = false;
+    };
+  }, [id]);
+  return figure;
+}
+function Thumb({ card }: { card: Row }) {
+  const figure = useFigure(`${card.arxiv_id}${card.paper_version || ''}`);
+  const hf = card.signals.some((s: Row) => s.source === 'hf');
+  if (figure === undefined) return <span className="paper-thumb loading-figure" />;
+  const src = figure?.src || (hf ? thumbnail(card.arxiv_id) : '');
+  if (!src) return null;
+  return (
+    <Link
+      href={`/paper/${card.arxiv_id}`}
+      className={`paper-thumb ${figure ? 'figure' : ''}`}
+      tabIndex={-1}
+      aria-hidden="true"
+    >
+      <Picture src={src} alt="" />
+    </Link>
+  );
+}
+function PaperFigure({ id, fallback }: { id: string; fallback: string }) {
+  const figure = useFigure(id);
+  if (figure === undefined) return <div className="paper-figure loading-figure" />;
+  if (!figure && !fallback) return null;
+  return (
+    <figure className="paper-figure">
+      <div className="paper-figure-frame">
+        <Picture
+          src={figure?.src || fallback}
+          alt={figure ? `${figure.label} from the paper` : 'Paper preview'}
+        />
       </div>
-      {expanded && (
-        <div className="expanded-card">
-          <section>
-            <div className="section-label">
-              <BookOpen size={16} />
-              <h3>Learn this topic</h3>
-              <span className="pill capitalize">For {audience}</span>
-            </div>
-            {e ? (
+      <figcaption>
+        {figure ? (
+          <>
+            <strong>{figure.label}.</strong> {figure.caption}{' '}
+            <a href={`https://arxiv.org/html/${id}`} target="_blank" rel="noreferrer">
+              From the paper ↗
+            </a>
+          </>
+        ) : (
+          'Preview image from Hugging Face.'
+        )}
+      </figcaption>
+    </figure>
+  );
+}
+const longDate = (date?: string) =>
+  (date ? new Date(date) : new Date()).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: date ? 'UTC' : undefined,
+  });
+const byline = (authors: string[]) =>
+  authors.length > 2 ? `${authors[0]} and colleagues` : authors.join(' and ');
+// A front-page story: lead (big, with figure and core idea), rail (text only) or standard.
+function Story({ card, variant }: { card: Row; variant: 'lead' | 'rail' | 'standard' }) {
+  const { x } = studentView(card);
+  const href = `/paper/${card.arxiv_id}`;
+  const Headline = variant === 'lead' ? 'h2' : 'h3';
+  const bold = card.claims.some((c: Row) => c.is_bold === 1);
+  return (
+    <article className={`story ${variant}`}>
+      {variant !== 'rail' && <Thumb card={card} />}
+      <p className="kicker">{card.topics?.[0] || 'AI research'}</p>
+      <Headline className="headline">
+        <Link href={href}>{card.paper.title}</Link>
+      </Headline>
+      <p className="deck">{x.one_liner || card.tldr}</p>
+      {variant === 'lead' && x.core_idea && (
+        <p className="story-excerpt">
+          <strong>The core idea.</strong> {x.core_idea}
+        </p>
+      )}
+      <p className="story-byline">
+        By {byline(card.paper.authors)} · {readMinutes(card)} min read
+      </p>
+      <p className="story-status">
+        {publication(card.paper)} · not yet independently confirmed
+        {bold && ' · strong claim'}
+      </p>
+      <Link className="story-more" href={href}>
+        Read the story <ArrowRight size={15} />
+      </Link>
+    </article>
+  );
+}
+function StudentCard({ card, index }: { card: Row; index: number }) {
+  const { x } = studentView(card);
+  const bold = card.claims.some((c: Row) => c.is_bold === 1);
+  return (
+    <article className="paper-row">
+      <span className="paper-row-number" aria-hidden="true">
+        {index + 1}
+      </span>
+      <div>
+        <p className="meta">
+          <Difficulty level={x.difficulty} /> {metaLine(card)}
+        </p>
+        <h3>
+          <Link href={`/paper/${card.arxiv_id}`}>{card.paper.title}</Link>
+        </h3>
+        <p className="paper-row-summary">{x.one_liner || card.tldr}</p>
+        <p className="meta">
+          {publication(card.paper)} · not yet independently confirmed
+          {bold && ' · strong claim'}
+        </p>
+        <Signals card={card} />
+      </div>
+      <Thumb card={card} />
+    </article>
+  );
+}
+function PaperLesson({
+  card,
+  feedback,
+  embedded = false,
+}: {
+  card: Row;
+  feedback: Feedback;
+  embedded?: boolean;
+}) {
+  const [voted, setVoted] = useState('');
+  const p = card.paper;
+  const { e, x } = studentView(card);
+  const takeaways: string[] = x.key_takeaways || [];
+  const glossary: Row[] = e?.glossary || [];
+  const quiz: Row[] = x.quiz || [];
+  const steps: Row[] = x.how_it_works || [];
+  const learn: Row[] = x.learn_first || [];
+  const careful = card.limitations || card.could_not_verify.length || card.discussion.length;
+  const signals: Row[] = card.signals.filter(
+    (s: Row, i: number, a: Row[]) => a.findIndex((y) => y.source === s.source) === i,
+  );
+  const toc = [
+    ['big-idea', 'The big idea'],
+    ...(steps.length ? [['how', 'How it works']] : []),
+    ['found', 'What they found'],
+    ...(careful ? [['careful', 'Read with care']] : []),
+    ...(learn.length || glossary.length ? [['learn', 'Learn the basics']] : []),
+    ...(quiz.length || takeaways.length ? [['quiz', 'Remember & check']] : []),
+    ['deeper', 'Go deeper'],
+  ];
+  const Title = embedded ? 'h2' : 'h1';
+  return (
+    <article className={`lesson ${embedded ? 'embedded' : ''}`}>
+      {!embedded && (
+        <Link href="/technology" className="back-link">
+          ← All papers
+        </Link>
+      )}
+      <header className="lesson-head">
+        <p className="kicker lesson-kicker">{card.topics?.[0] || 'AI research'}</p>
+        <Title>{p.title}</Title>
+        <p className="lesson-standfirst">{x.one_liner || card.tldr}</p>
+        <p className="byline">
+          By {byline(p.authors)} · Published {dateLabel(p.published_at)} · Explained by The Newsren
+          ·{' '}
+          <a
+            href={`https://arxiv.org/abs/${card.arxiv_id}${card.paper_version || ''}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Read on arXiv ↗
+          </a>
+        </p>
+        <p className="lesson-status">
+          <Difficulty level={x.difficulty} /> {metaLine(card, 3)} · {publication(p)} · not yet
+          independently confirmed
+          {card.status === 'draft' && ' · not editor-reviewed'}
+        </p>
+        <Signals card={card} />
+      </header>
+      {!embedded && (
+        <PaperFigure
+          id={`${card.arxiv_id}${card.paper_version || ''}`}
+          fallback={
+            card.signals.some((s: Row) => s.source === 'hf') ? thumbnail(card.arxiv_id) : ''
+          }
+        />
+      )}
+      <div className="lesson-layout">
+        {!embedded && (
+          <nav className="lesson-toc" aria-label="On this page">
+            {toc.map(([anchor, label]) => (
+              <a key={anchor} href={`#${anchor}`}>
+                {label}
+              </a>
+            ))}
+          </nav>
+        )}
+        <div className="lesson-body">
+          <section id="big-idea">
+            <h2>The big idea</h2>
+            {embedded && <p className="standfirst">{x.one_liner || card.tldr}</p>}
+            {x.problem ? (
               <>
-                <p>{e.body}</p>
-                {e.glossary?.length > 0 && (
-                  <dl className="glossary">
-                    {e.glossary.map((g: Row) => (
-                      <div key={g.term}>
-                        <dt>{g.term}</dt>
-                        <dd>{g.definition}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                )}
-                {e.discussion_questions?.length > 0 && (
-                  <>
-                    <h4>Questions for discussion</h4>
-                    <ol>
-                      {e.discussion_questions.map((q: string) => (
-                        <li key={q}>{q}</li>
-                      ))}
-                    </ol>
-                  </>
-                )}
-                {e.activity && (
-                  <div className="activity">
-                    <strong>Try this in class</strong>
-                    <p>{e.activity}</p>
+                <div className="idea-block">
+                  <span className="idea-icon">
+                    <Target size={18} strokeWidth={1.7} />
+                  </span>
+                  <div>
+                    <h3>The problem</h3>
+                    <p>{x.problem}</p>
                   </div>
-                )}
+                </div>
+                <div className="idea-block core">
+                  <span className="idea-icon">
+                    <KeyRound size={18} strokeWidth={1.7} />
+                  </span>
+                  <div>
+                    <h3>The core idea</h3>
+                    <p>{x.core_idea}</p>
+                  </div>
+                </div>
               </>
+            ) : e?.body ? (
+              paragraphs(e.body).map((t, i) => <p key={i}>{t}</p>)
             ) : (
               <p className="muted">
-                This audience explanation is not available yet. The verified evidence below is
-                available to all readers.
+                The student explanation isn’t ready yet. The claims below come straight from the
+                paper.
+              </p>
+            )}
+            {x.why_it_matters && (
+              <p>
+                <span className="label inline">Why it might matter.</span> {x.why_it_matters}
               </p>
             )}
           </section>
-          <section>
-            <div className="section-label">
-              <ShieldCheck size={16} />
-              <h3>Inspect evidence</h3>
-            </div>
-            <p className="small muted">
-              Decoder text is an AI interpretation. Quotes are matched to source text; their truth
-              and the interpretation’s accuracy are not independently confirmed.
-            </p>
-            <div className="decoder-grid">
-              {[
-                ['whats_new', 'What’s technically new'],
-                ['hypothesis', 'Hypothesis'],
-                ['method', 'Method'],
-                ['findings', 'Findings'],
-                ['limitations', 'Limitations'],
-                ['possible_applications', 'Possible applications'],
-                ['watch_next', 'What to watch next'],
-              ].map(
-                ([key, label]) =>
-                  card[key] && (
-                    <div key={key}>
-                      <h4>
-                        {label}
-                        {['possible_applications', 'watch_next'].includes(key) && (
-                          <span className="speculation">Possibility, not a finding</span>
-                        )}
-                      </h4>
-                      <p>{card[key]}</p>
+          {steps.length > 0 && (
+            <section id="how">
+              <h2>How it works</h2>
+              <ol className="steps">
+                {steps.map((step, i) => (
+                  <li key={i}>
+                    <span className="step-n">{i + 1}</span>
+                    <div>
+                      <strong>{step.title}</strong>
+                      <p>{step.detail}</p>
                     </div>
-                  ),
+                  </li>
+                ))}
+              </ol>
+              {x.analogy && (
+                <aside className="callout">
+                  <Lightbulb size={20} strokeWidth={1.6} />
+                  <div>
+                    <span className="label">Think of it like this</span>
+                    <p>{x.analogy}</p>
+                    <p className="meta">An analogy is a simplification, not the full picture.</p>
+                  </div>
+                </aside>
               )}
-            </div>
-            <h4 className="spaced-title">The claims, with receipts</h4>
-            {!card.claims.length && <p>No proposed claims passed quote verification.</p>}
+            </section>
+          )}
+          {!steps.length && x.analogy && (
+            <aside className="callout">
+              <Lightbulb size={20} strokeWidth={1.6} />
+              <div>
+                <span className="label">Think of it like this</span>
+                <p>{x.analogy}</p>
+                <p className="meta">An analogy is a simplification, not the full picture.</p>
+              </div>
+            </aside>
+          )}
+          <section id="found">
+            <h2>What the authors report</h2>
+            {x.results && <p className="results">{x.results}</p>}
+            <EvidenceLadder matched={card.claims.length} />
+            <p className="muted">
+              Each claim is shown with the sentence it comes from. We check that the sentence is in
+              the paper; nobody outside the team has tested the results yet.
+            </p>
+            {!card.claims.length && (
+              <p className="muted">No claim could be matched to the paper’s own words.</p>
+            )}
             {card.claims.map((c: Row) => (
-              <Claim
+              <StudentClaim
                 key={c.id}
                 claim={c}
                 arxivId={card.arxiv_id}
@@ -841,125 +1011,232 @@ function PaperCard({
                 feedback={feedback}
               />
             ))}
-            {card.discussion.length > 0 && (
-              <>
-                <h4 className="spaced-title">
-                  Community discussion <span className="pill">Not verified fact</span>
-                </h4>
-                {card.discussion.map((d: Row, i: number) => (
-                  <div key={i} className="discussion">
-                    <span className="pill capitalize">{d.stance}</span>
-                    <p>{d.summary}</p>
-                    <blockquote>{d.quote}</blockquote>
-                    <a
-                      href={`https://news.ycombinator.com/item?id=${d.comment_id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Read comment <ExternalLink size={12} />
-                    </a>
-                  </div>
-                ))}
-              </>
-            )}
-            <div className="unverified">
-              <h4>What we couldn’t verify</h4>
-              <ul>
-                {card.could_not_verify.map((s: string, i: number) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
-            </div>
-          </section>
-          <Trace steps={card.trace} reason={card.selection_reason} />
-          <section>
-            <h3>Sources & timestamps</h3>
-            <div className="source-links">
-              <a
-                href={`https://arxiv.org/abs/${card.arxiv_id}${card.paper_version}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                arXiv paper <ArrowUpRight size={13} />
-              </a>
-              {p.html_available === 1 && (
-                <a
-                  href={`https://arxiv.org/html/${card.arxiv_id}${card.paper_version}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Full-text source <ArrowUpRight size={13} />
-                </a>
-              )}
-              {signals.map((s: Row) => (
-                <a key={s.source} href={s.url} target="_blank" rel="noreferrer">
-                  {s.source === 'hf' ? 'Hugging Face' : 'Hacker News'}
-                  <ArrowUpRight size={13} />
-                </a>
-              ))}
-            </div>
-            <dl className="timestamps">
-              {[
-                ['Published', p.published_at],
-                ['Updated', p.updated_at],
-                ['First seen', p.first_seen_at],
-                ['Fetched', p.last_fetched_at],
-                ['Card created', card.created_at],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <dt>{label}</dt>
-                  <dd>{value ? new Date(value).toLocaleString() : 'Unavailable'}</dd>
-                </div>
-              ))}
-            </dl>
-            {full && (
-              <details>
-                <summary>Signal history</summary>
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Source</th>
-                        <th>Score</th>
-                        <th>Comments</th>
-                        <th>Observed</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {card.signals.map((s: Row) => (
-                        <tr key={s.id}>
-                          <td>{s.source}</td>
-                          <td>{s.score}</td>
-                          <td>{s.num_comments}</td>
-                          <td>{dateLabel(s.observed_at, true)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+            {(card.whats_new || card.method || card.findings) && (
+              <details className="fold">
+                <summary>
+                  Technical notes <ChevronDown size={15} />
+                </summary>
+                {[
+                  ['whats_new', 'What’s new'],
+                  ['method', 'How they did it'],
+                  ['findings', 'What they found'],
+                ].map(
+                  ([key, label]) =>
+                    card[key] && (
+                      <div key={key}>
+                        <h4>{label}</h4>
+                        <p>{card[key]}</p>
+                      </div>
+                    ),
+                )}
               </details>
             )}
           </section>
-          <div className="roadmap-row">
-            {['Connected stories', 'Follow developments'].map((x) => (
-              <div key={x}>
-                <Layers size={16} />
-                <strong>{x}</strong>
-                <span className="pill">Roadmap</span>
-                <p>
-                  {x === 'Connected stories'
-                    ? 'See how this research connects to earlier work.'
-                    : 'Follow an idea as new evidence arrives.'}
-                </p>
-              </div>
+          {careful ? (
+            <section id="careful">
+              <h2>Read with care</h2>
+              {card.limitations && <p>{card.limitations}</p>}
+              {card.could_not_verify.length > 0 && (
+                <>
+                  <h3>What we couldn’t check</h3>
+                  <ul className="plain-list">
+                    {card.could_not_verify.map((s: string, i: number) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {card.discussion.length > 0 && (
+                <>
+                  <h3>From the online discussion</h3>
+                  <p className="muted">Opinions, not facts.</p>
+                  {card.discussion.map((d: Row, i: number) => (
+                    <div key={i} className="comment">
+                      <p>{d.summary}</p>
+                      <blockquote>{d.quote}</blockquote>
+                      <a
+                        className="meta"
+                        href={`https://news.ycombinator.com/item?id=${d.comment_id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {d.stance} · read the comment ↗
+                      </a>
+                    </div>
+                  ))}
+                </>
+              )}
+            </section>
+          ) : null}
+          {(learn.length > 0 || glossary.length > 0) && (
+            <section id="learn">
+              <h2>Learn the basics</h2>
+              {learn.length > 0 && (
+                <>
+                  <p className="muted">
+                    New to this area? These ideas make the paper much easier to follow.
+                  </p>
+                  <ol className="learn-path">
+                    {learn.map((item) => (
+                      <li key={item.concept}>
+                        <GraduationCap size={18} strokeWidth={1.6} />
+                        <div>
+                          <strong>{item.concept}</strong>
+                          <p>{item.why}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
+              {glossary.length > 0 && (
+                <>
+                  <h3>Words to know</h3>
+                  <dl className="terms">
+                    {glossary.map((g) => (
+                      <div key={g.term}>
+                        <dt>{g.term}</dt>
+                        <dd>{g.definition}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </>
+              )}
+            </section>
+          )}
+          {(takeaways.length > 0 || quiz.length > 0) && (
+            <section id="quiz">
+              <h2>Remember & check yourself</h2>
+              {takeaways.length > 0 && (
+                <div className="takeaways">
+                  <h3>Remember</h3>
+                  <ol>
+                    {takeaways.map((t) => (
+                      <li key={t}>{t}</li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+              {quiz.map((q, i) => (
+                <QuizQuestion key={i} q={q} />
+              ))}
+            </section>
+          )}
+          <section id="deeper">
+            <h2>Go deeper</h2>
+            {[
+              ['hypothesis', 'The question they asked'],
+              ['possible_applications', 'Where it could be used (speculative)'],
+              ['watch_next', 'What to watch next (speculative)'],
+            ].map(
+              ([key, label]) =>
+                card[key] && (
+                  <div key={key}>
+                    <h3>{label}</h3>
+                    <p>{card[key]}</p>
+                  </div>
+                ),
+            )}
+            <Trace steps={card.trace} reason={card.selection_reason} />
+            <details className="fold">
+              <summary>
+                Sources and dates <ChevronDown size={15} />
+              </summary>
+              <p className="source-list">
+                <a
+                  href={`https://arxiv.org/abs/${card.arxiv_id}${card.paper_version}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  arXiv ↗
+                </a>
+                {p.html_available === 1 && (
+                  <a
+                    href={`https://arxiv.org/html/${card.arxiv_id}${card.paper_version}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Full text ↗
+                  </a>
+                )}
+                {signals.map((s: Row) => (
+                  <a key={s.source} href={s.url} target="_blank" rel="noreferrer">
+                    {s.source === 'hf'
+                      ? `Hugging Face (${s.score} upvotes) ↗`
+                      : `Hacker News (${s.score} points) ↗`}
+                  </a>
+                ))}
+              </p>
+              <dl className="dates">
+                {[
+                  ['Published', p.published_at],
+                  ['Updated', p.updated_at],
+                  ['First seen', p.first_seen_at],
+                  ['Fetched', p.last_fetched_at],
+                  ['Explained', card.created_at],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{value ? new Date(value).toLocaleString() : 'Unavailable'}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
+          </section>
+          <p className="helpful">
+            Was this helpful?
+            {[
+              ['up', 'Yes'],
+              ['down', 'No'],
+            ].map(([v, label]) => (
+              <button
+                key={v}
+                className={voted === v ? 'selected' : ''}
+                disabled={!!voted}
+                onClick={async () => {
+                  if (await feedback('card', card.id, v)) setVoted(v);
+                }}
+              >
+                {label}
+              </button>
             ))}
-          </div>
+            {voted && <span className="muted">Thanks.</span>}
+          </p>
         </div>
-      )}
+      </div>
     </article>
   );
 }
-function Claim({
+function QuizQuestion({ q }: { q: Row }) {
+  const [picked, setPicked] = useState<number | null>(null);
+  const answered = picked !== null;
+  return (
+    <fieldset className="quiz">
+      <legend>{q.question}</legend>
+      {q.options.map((option: string, i: number) => (
+        <button
+          key={i}
+          type="button"
+          disabled={answered}
+          aria-pressed={picked === i}
+          className={answered && i === q.answer_index ? 'right' : picked === i ? 'wrong' : ''}
+          onClick={() => setPicked(i)}
+        >
+          {option}
+        </button>
+      ))}
+      {answered && (
+        <p className="quiz-result" role="status">
+          <strong>{picked === q.answer_index ? 'Right.' : 'Not quite.'}</strong> {q.explanation}{' '}
+          <button type="button" className="text-button" onClick={() => setPicked(null)}>
+            Try again
+          </button>
+        </p>
+      )}
+    </fieldset>
+  );
+}
+function StudentClaim({
   claim: c,
   arxivId,
   version,
@@ -972,54 +1249,46 @@ function Claim({
 }) {
   const [flagged, setFlagged] = useState(false);
   return (
-    <div className="claim">
-      <div className="claim-heading">
-        <span className="verified-icon">
-          <ShieldCheck size={16} /> Quote verified
-        </span>
-        <span className="pill">{c.claim_type.replaceAll('_', ' ')}</span>
-      </div>
+    <div className="claim-block">
       <p className="claim-text">{c.text}</p>
       {c.metric && (
-        <p className="small">
-          {c.metric}: {c.value} {c.benchmark && `· ${c.benchmark}`}{' '}
-          {c.baseline && `· baseline: ${c.baseline}`}
+        <p className="meta">
+          {c.metric}: {c.value}
+          {c.benchmark && ` on ${c.benchmark}`}
+          {c.baseline && ` (vs. ${c.baseline})`}
         </p>
       )}
       <blockquote>“{c.quote}”</blockquote>
-      <div className="claim-source">
+      <p className="meta">
         <a
           href={`https://arxiv.org/${c.quote_source === 'abstract' ? 'abs' : 'html'}/${arxivId}${version}${c.quote_source === 'full_text' && c.quote_location !== 'Across sections' ? `#${encodeURIComponent(c.quote_location)}` : ''}`}
           target="_blank"
           rel="noreferrer"
         >
-          {c.quote_location} <ArrowUpRight size={12} />
+          Matched in {where(c.quote_location)} ↗
         </a>
+        {' · '}
         <button
+          className="text-button"
           disabled={flagged}
           onClick={async () => {
             if (await feedback('claim', c.id, 'wrong')) setFlagged(true);
           }}
         >
-          <Flag size={12} />
-          {flagged ? 'Flag received' : 'Flag as wrong'}
+          {flagged ? 'Thanks for flagging' : 'Report an error'}
         </button>
-      </div>
-      <small>Author-reported · Not yet independently confirmed</small>
+      </p>
     </div>
   );
 }
 function Trace({ steps, reason }: { steps: Row[]; reason?: string }) {
   return (
     <section className="trace">
-      <details>
+      <details className="fold">
         <summary>
-          <span>
-            <Radio size={16} /> How this card was made
-          </span>
-          <ChevronDown size={16} />
+          How this page was made <ChevronDown size={15} />
         </summary>
-        {reason && <p className="trace-reason">Editor’s reason: {reason}</p>}
+        {reason && <p className="trace-reason">Why this paper was picked: {reason}</p>}
         <ol>
           {steps.map((s: Row) => (
             <li key={s.id}>
@@ -1046,102 +1315,63 @@ function Trace({ steps, reason }: { steps: Row[]; reason?: string }) {
     </section>
   );
 }
-function BriefingTeaser({ briefing }: { briefing: Row | null }) {
-  return (
-    <div className="briefing-teaser">
-      <div className="eyebrow">
-        <Headphones size={15} /> THE BIG PICTURE
-      </div>
-      <div className="waveform" aria-hidden="true">
-        {[8, 18, 26, 14, 34, 46, 28, 18, 38, 54, 32, 20, 42, 24, 14, 30, 42, 22, 12, 26, 16, 8].map(
-          (h, i) => (
-            <i key={i} style={{ height: h }} />
-          ),
-        )}
-      </div>
-      <h3>
-        Your research.
-        <br />
-        In a shorter read.
-      </h3>
-      <p>
-        {briefing
-          ? 'The key findings, the caveats, and what’s worth your attention.'
-          : 'The next edition will bring together the day’s key findings and caveats.'}
-      </p>
-      <Link className="button" href="/briefing/latest">
-        {briefing?.audio_url ? <Play size={13} /> : <BookOpen size={14} />}{' '}
-        {briefing ? 'Open the briefing' : 'About your briefing'}
-        <ArrowRight size={13} />
-      </Link>
-      <small>
-        {briefing?.audio_url
-          ? 'Voice generated with ElevenLabs'
-          : 'Text first. Audio, when configured.'}
-      </small>
-    </div>
-  );
-}
 function Briefing({ briefing, feedback }: { briefing: Row | null; feedback: Feedback }) {
   const [voted, setVoted] = useState(false);
   if (!briefing)
     return (
       <Empty
-        title="The briefing is still taking shape."
-        text="A daily run creates a briefing from visible, verified cards. In required review mode, approve cards first and run again to generate their briefing."
+        title="No briefing yet."
+        text="A daily run writes a short spoken briefing from the checked papers. In required review mode, approve papers first and run again."
       >
-        <Link className="button primary" href="/runs">
-          Go to agent runs <ArrowRight size={15} />
+        <Link className="quiet-link" href="/runs">
+          Go to agent runs →
         </Link>
       </Empty>
     );
   return (
-    <div className="briefing-page">
-      <span className="eyebrow">{dateLabel(briefing.date)} · AI-GENERATED BRIEFING</span>
+    <article className="briefing">
+      <p className="dateline">{dateLabel(briefing.date)}</p>
       <h1>{briefing.title}</h1>
-      {briefing.audio_url && (
-        <div className="audio-panel">
+      {briefing.audio_url ? (
+        <div className="audio">
           <audio controls src={briefing.audio_url} />
-          <p>Voice generated with ElevenLabs</p>
+          <p className="meta">Voice generated with ElevenLabs</p>
         </div>
+      ) : (
+        <p className="meta">No audio for this edition.</p>
       )}
       <div className="transcript">
-        {briefing.script.split(/\n+/).map((p: string, i: number) => (
-          <p key={i}>{p}</p>
+        {briefing.script.split(/\n+/).map((t: string, i: number) => (
+          <p key={i}>{t}</p>
         ))}
       </div>
-      <h3>Go to the evidence</h3>
-      <div className="briefing-links">
+      <h2>In this briefing</h2>
+      <ul className="link-list">
         {briefing.cards?.map((c: Row) => (
-          <Link key={c.id} href={`/paper/${c.arxivId}`}>
-            <ShieldCheck size={16} />
-            <span>
-              {c.title}
-              <small>
-                Author-reported · Not yet independently confirmed
-                {c.status === 'draft' ? ' · AI-generated, not editor-reviewed' : ''}
-              </small>
-            </span>
-            <ArrowUpRight size={16} />
-          </Link>
+          <li key={c.id}>
+            <Link href={`/paper/${c.arxivId}`}>{c.title}</Link>
+          </li>
         ))}
-      </div>
-      <div className="feedback">
-        <span>Was this useful?</span>
-        {['up', 'down'].map((v) => (
+      </ul>
+      <p className="helpful">
+        Was this helpful?
+        {[
+          ['up', 'Yes'],
+          ['down', 'No'],
+        ].map(([v, label]) => (
           <button
-            disabled={voted}
             key={v}
-            aria-label={`Vote ${v}`}
+            disabled={voted}
             onClick={async () => {
               if (await feedback('briefing', briefing.id, v)) setVoted(true);
             }}
           >
-            {v === 'up' ? <ThumbsUp size={16} /> : <ThumbsDown size={16} />}
+            {label}
           </button>
         ))}
-      </div>
-    </div>
+        {voted && <span className="muted">Thanks.</span>}
+      </p>
+    </article>
   );
 }
 
@@ -1343,17 +1573,7 @@ function RunDetail({ run }: { run: Row | null }) {
     </>
   );
 }
-function Review({
-  cards,
-  audience,
-  feedback,
-  action,
-}: {
-  cards: Row[];
-  audience: Audience;
-  feedback: Feedback;
-  action: Action;
-}) {
+function Review({ cards, feedback, action }: { cards: Row[]; feedback: Feedback; action: Action }) {
   return (
     <>
       <p className="page-description">
@@ -1362,7 +1582,7 @@ function Review({
       </p>
       {cards.length ? (
         cards.map((c: Row) => (
-          <ReviewItem key={c.id} card={c} audience={audience} feedback={feedback} action={action} />
+          <ReviewItem key={c.id} card={c} feedback={feedback} action={action} />
         ))
       ) : (
         <Empty
@@ -1373,27 +1593,22 @@ function Review({
     </>
   );
 }
-function ReviewItem({
-  card,
-  audience,
-  feedback,
-  action,
-}: {
-  card: Row;
-  audience: Audience;
-  feedback: Feedback;
-  action: Action;
-}) {
+function ReviewItem({ card, feedback, action }: { card: Row; feedback: Feedback; action: Action }) {
   const [opened, setOpened] = useState<number | null>(null);
   return (
     <div className="review-item">
-      <PaperCard
-        card={card}
-        index={0}
-        audience={audience}
-        feedback={feedback}
-        onOpen={() => setOpened((previous) => previous ?? Date.now())}
-      />
+      <StudentCard card={card} index={0} />
+      <details
+        className="review-evidence"
+        onToggle={(e) => {
+          if (e.currentTarget.open) setOpened((previous) => previous ?? Date.now());
+        }}
+      >
+        <summary>
+          Inspect the explanation and evidence <ChevronDown size={16} />
+        </summary>
+        <PaperLesson card={card} feedback={feedback} embedded />
+      </details>
       <div className="review-actions">
         <button
           className="button"
@@ -1601,7 +1816,6 @@ function Preferences({
 }) {
   const [topics, setTopics] = useState(data?.topics?.join(', ') || ''),
     [mode, setMode] = useState(data?.review_mode || 'personal'),
-    [audience, setAudience] = useState(data?.briefing_audience || 'professional'),
     [limit, setLimit] = useState(data?.max_papers_per_run || 10),
     [busy, setBusy] = useState(false);
   return (
@@ -1623,7 +1837,6 @@ function Preferences({
                   .map((t: string) => t.trim())
                   .filter(Boolean),
                 review_mode: mode,
-                briefing_audience: audience,
                 max_papers_per_run: Number(limit),
               },
               'PUT',
@@ -1654,16 +1867,6 @@ function Preferences({
           <select value={mode} onChange={(e) => setMode(e.target.value)}>
             <option value="personal">Personal — show drafts with a disclosure</option>
             <option value="required">Required — approve before display</option>
-          </select>
-        </label>
-        <label>
-          Briefing audience
-          <select value={audience} onChange={(e) => setAudience(e.target.value)}>
-            {audiences.map((a) => (
-              <option value={a} key={a}>
-                {a}
-              </option>
-            ))}
           </select>
         </label>
         <button className="button primary" disabled={busy}>
@@ -1703,9 +1906,9 @@ function About() {
         <em>what the paper actually shows.</em>
       </p>
       <p>
-        The Newsren is an agentic AI research briefing for curious engineers, students, and
-        educators. Hugging Face and Hacker News tell us what’s drawing attention. The research goes
-        back to the paper.
+        The Newsren is an agentic AI research briefing for students. Hugging Face and Hacker News
+        tell us which papers are drawing attention. The research goes back to the paper, and the
+        explanation is written for someone who hasn’t read it.
       </p>
       <div className="architecture">
         {[
@@ -1713,7 +1916,7 @@ function About() {
           ['02', 'Choose', 'An Editor with a hard budget'],
           ['03', 'Research', 'Primary sources and tools'],
           ['04', 'Verify', 'Code checks every quote'],
-          ['05', 'Explain', 'One source, three perspectives'],
+          ['05', 'Explain', 'Plain English, with a quick check'],
         ].map(([n, title, detail]) => (
           <div key={n}>
             <span>{n}</span>

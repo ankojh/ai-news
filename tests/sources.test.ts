@@ -4,7 +4,7 @@ import { extractArxivId, mergeCandidates } from '../lib/sources/merge';
 import { parseHF } from '../lib/sources/hf';
 import { parseHN, parseHNComments } from '../lib/sources/hn';
 import { parseArxiv } from '../lib/sources/arxiv';
-import { parseArxivHtml } from '../lib/sources/arxivHtml';
+import { parseArxivHtml, parseFirstFigure } from '../lib/sources/arxivHtml';
 import { assertAllowed, DisallowedHostError } from '../lib/http/fetcher';
 import { publicationStatus, isBold } from '../lib/labels';
 const fixture = (name: string) => readFileSync(`fixtures/${name}`, 'utf8');
@@ -98,5 +98,31 @@ describe('source and label guardrails', () => {
   it('keeps the bold rule deterministic', () => {
     expect(isBold('capability')).toBe(true);
     expect(isBold('efficiency')).toBe(false);
+  });
+});
+describe('first figure', () => {
+  it('resolves the image against arXiv HTML and splits the label from the caption', () => {
+    const figure = parseFirstFigure(
+      '<figure class="ltx_figure"><img src="2610.33568v1/teaser.png"><figcaption><span class="ltx_tag">Figure 1: </span>Overview of the method.</figcaption></figure>',
+    );
+    expect(figure).toEqual({
+      src: 'https://arxiv.org/html/2610.33568v1/teaser.png',
+      label: 'Figure 1',
+      caption: 'Overview of the method.',
+    });
+  });
+  it('reads SVG figures embedded as objects', () =>
+    expect(
+      parseFirstFigure(
+        '<figure class="ltx_figure"><object type="image/svg+xml" data="2610.34467v1/fig.svg"></object></figure>',
+      )?.src,
+    ).toBe('https://arxiv.org/html/2610.34467v1/fig.svg'));
+  it('ignores tables and images on other hosts', () => {
+    expect(parseFirstFigure('<figure class="ltx_table"><img src="t.png"></figure>')).toBeNull();
+    expect(
+      parseFirstFigure(
+        '<figure class="ltx_figure"><img src="https://evil.example/x.png"></figure>',
+      ),
+    ).toBeNull();
   });
 });

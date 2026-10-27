@@ -24,7 +24,7 @@ const schema = z.object({
   MAX_TOOL_CALLS_PER_PAPER: integer(8, 30),
   MAX_TOOL_CALLS_EDITOR: integer(20, 60),
   MAX_TOKENS_PER_PAPER: integer(60000, 500000),
-  MAX_TOKENS_PER_RUN: integer(200000, 2000000),
+  MAX_TOKENS_PER_RUN: integer(600000, 2000000),
   MAX_COST_USD_PER_RUN: z.coerce.number().positive().default(1),
   RUN_TIMEOUT_MS: integer(900000),
   RESEARCH_TIMEOUT_MS: integer(120000),
@@ -34,7 +34,6 @@ const schema = z.object({
   HF_MIN_CANDIDATES: integer(20),
   CONTACT_EMAIL: z.string().default(''),
   REVIEW_MODE: z.enum(['personal', 'required']).default('personal'),
-  BRIEFING_AUDIENCE: z.enum(['student', 'educator', 'professional']).default('professional'),
   BRIEFING_SIZE: integer(5, 10),
   PRICE_TTS_PER_1K_CHARS: optionalPrice,
 });

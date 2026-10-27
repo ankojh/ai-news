@@ -67,7 +67,6 @@ describe('API validation, access, and editorial actions', () => {
         {
           topics: ['Agents'],
           review_mode: 'personal',
-          briefing_audience: 'professional',
           max_papers_per_run: 3,
         },
         false,
@@ -84,6 +83,12 @@ describe('API validation, access, and editorial actions', () => {
     const r = req('settings', { topics: ['Agents'] }, true, 'PUT');
     r.headers.set('Origin', 'https://evil.example');
     expect((await PUT(r)).status).toBe(403);
+  });
+  it('accepts same-host writes when the app is served on 127.0.0.1', async () => {
+    const r = req('feedback', { targetType: 'claim', targetId: 'missing', value: 'wrong' });
+    r.headers.set('Origin', 'http://127.0.0.1:3107');
+    r.headers.set('Host', '127.0.0.1:3107');
+    expect((await POST(r)).status).toBe(404);
   });
   it('rejects feedback for a missing target', async () =>
     expect(

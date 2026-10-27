@@ -144,40 +144,22 @@ function main() {
         { source: 'abstract', quote },
         'Exact source excerpt passed the production quote verifier.',
       );
-      for (const audience of ['student', 'educator', 'professional']) {
-        const context =
-          audience === 'student'
-            ? 'Read the authors’ words first. This preview has not yet turned the paper into a student explanation.'
-            : audience === 'educator'
-              ? 'Use this source excerpt as a reading exercise. This preview is not a generated teaching guide.'
-              : 'This is a captured primary-source excerpt. No technical evaluation or practitioner implications have been inferred.';
-        insert('explanations', {
-          card_id: cardId,
-          audience,
-          body: `${context}\n\nThe authors write: “${quote}”`,
-          glossary_json: '[]',
-          discussion_questions_json:
-            audience === 'educator'
-              ? JSON.stringify([
-                  'What does this excerpt establish?',
-                  'What evidence would you need to evaluate the complete paper?',
-                  'How is a verified quote different from an independently confirmed result?',
-                ])
-              : '[]',
-          activity:
-            audience === 'educator'
-              ? 'Open the abstract and identify a claim that needs evidence from the results section.'
-              : '',
-          model: 'fixture-preview (no model)',
-          created_at: now(),
-        });
-      }
+      insert('explanations', {
+        card_id: cardId,
+        audience: 'student',
+        body: `Read the authors’ words first. This preview has not yet turned the paper into a student explanation.\n\nThe authors write: “${quote}”`,
+        glossary_json: '[]',
+        discussion_questions_json: '[]',
+        activity: '',
+        model: 'fixture-preview (no model)',
+        created_at: now(),
+      });
     });
     insert('briefings', {
       id: randomUUID(),
       run_id: runId,
       date,
-      audience: 'professional',
+      audience: 'student',
       title: 'A first look at the reading desk',
       script:
         'This is an offline fixture preview of The Newsren. The papers below come from real captured Hugging Face and arXiv responses. Each sample card contains a short excerpt checked against its stored abstract. No Editor or Research agent has run, and no independent evaluation has been performed. Configure the local environment and start a live run to generate a researched daily briefing. Claims are checked against the papers’ own text; links are in the app.',

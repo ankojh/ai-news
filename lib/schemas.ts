@@ -1,5 +1,6 @@
 import { z } from 'zod';
-export const audienceSchema = z.enum(['student', 'educator', 'professional']);
+// The Newsren explains papers for students only.
+export const audienceSchema = z.enum(['student']);
 export type Audience = z.infer<typeof audienceSchema>;
 export const arxivIdSchema = z.string().regex(/^\d{4}\.\d{4,5}(v\d+)?$/);
 export const claimSchema = z.object({
@@ -60,14 +61,39 @@ export const selectionSchema = z.object({
 });
 export type Selection = z.infer<typeof selectionSchema>['selections'][number];
 export const explanationSchema = z.object({
-  body: z.string().min(1).max(4000),
+  one_liner: z.string().min(1).max(200),
+  problem: z.string().min(1).max(700),
+  core_idea: z.string().min(1).max(700),
+  how_it_works: z
+    .array(z.object({ title: z.string().min(1).max(60), detail: z.string().min(1).max(300) }))
+    .min(3)
+    .max(5),
+  results: z.string().min(1).max(700),
+  learn_first: z
+    .array(z.object({ concept: z.string().min(1).max(60), why: z.string().min(1).max(240) }))
+    .min(2)
+    .max(4),
+  analogy: z.string().min(1).max(500),
+  why_it_matters: z.string().min(1).max(500),
+  key_takeaways: z.array(z.string().min(1).max(200)).min(2).max(3),
   glossary: z
-    .array(z.object({ term: z.string(), definition: z.string() }))
-    .max(5)
-    .default([]),
-  discussion_questions: z.array(z.string()).max(3).default([]),
-  activity: z.string().default(''),
+    .array(z.object({ term: z.string().max(60), definition: z.string().max(240) }))
+    .min(2)
+    .max(5),
+  quiz: z
+    .array(
+      z.object({
+        question: z.string().min(1).max(240),
+        options: z.array(z.string().min(1).max(160)).length(3),
+        answer_index: z.number().int().min(0).max(2),
+        explanation: z.string().min(1).max(300),
+      }),
+    )
+    .min(2)
+    .max(3),
+  difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
 });
+export type Explanation = z.infer<typeof explanationSchema>;
 export type Section = { id: string; title: string; text: string };
 export type Comment = { commentId: string; author: string; text: string };
 export type Signal = {

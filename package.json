@@ -12,6 +12,7 @@
     "daily": "node --env-file-if-exists=.env --import tsx scripts/run-daily.ts",
     "capture-fixtures": "node --env-file-if-exists=.env --import tsx scripts/capture-fixtures.ts",
     "demo": "node --env-file-if-exists=.env --import tsx scripts/demo.ts",
+    "demo:clear": "node --env-file-if-exists=.env --import tsx scripts/demo-clear.ts",
     "metrics": "node --import tsx scripts/export-metrics.ts",
     "lint": "eslint .",
     "format": "prettier --write .",

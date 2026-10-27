@@ -265,14 +265,13 @@ export async function executeRun(runId: string, options: RunOptions) {
       phase('C · Research', 'done', `${created} new cards`);
       phase('D · Explain', 'running');
       for (const card of fresh)
-        for (const audience of ['student', 'educator', 'professional'] as const)
-          try {
-            budget.check();
-            await explainCard(card, audience, runId, budget);
-          } catch (error) {
-            partial = true;
-            trace(runId, card, 'explain', 'error', undefined, {}, String(error), false);
-          }
+        try {
+          budget.check();
+          await explainCard(card, runId, budget);
+        } catch (error) {
+          partial = true;
+          trace(runId, card, 'explain', 'error', undefined, {}, String(error), false);
+        }
       phase('D · Explain', 'done');
       phase('E · Brief', 'running');
       try {

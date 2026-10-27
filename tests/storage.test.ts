@@ -137,7 +137,7 @@ describe('defense in depth and reader visibility', () => {
       id: briefingId,
       run_id: runId,
       date: '2026-10-27',
-      audience: 'professional',
+      audience: 'student',
       script: 'Test',
       markdown: 'Test',
       card_ids_json: JSON.stringify([cardId]),

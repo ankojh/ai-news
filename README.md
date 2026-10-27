@@ -26,7 +26,7 @@ The interface opens without provider keys. Live agents use **local OpenAI Codex 
 | -------- | ------------- | -------------------------------------------- |
 | Editor   | `gpt-6-sol`   | Select papers and explain each choice        |
 | Research | `gpt-6-sol`   | Gather evidence, verify quotes, submit cards |
-| Explain  | `gpt-6-luna`  | Produce three audience explanations          |
+| Explain  | `gpt-6-luna`  | Produce the student explanation              |
 | Briefing | `gpt-6-luna`  | Write the daily briefing                     |
 
 Set `CODEX_BIN` if the CLI is outside the server's PATH. This machine's `.env` fills its detected absolute path. Model names and reasoning effort are configurable. Subscription usage follows your plan's limits; it is not unlimited and is not converted into invented API dollar prices. Direct OpenAI Platform API billing is separate and is not used by this adapter.
@@ -93,7 +93,7 @@ flowchart TD
   E --> R[Research agents: metadata, HTML, discussion, verification]
   R --> V[Code re-verifies quotes and derives labels]
   V --> S[(SQLite)]
-  S --> X[Student / Educator / Professional explanations]
+  S --> X[Student explanation: one-liner, analogy, takeaways, glossary, quiz]
   S --> B[Briefing writer]
   B --> T[Optional ElevenLabs narration]
   X --> UI[Reading desk, traces, review, and metrics]
@@ -162,22 +162,22 @@ These observations validate the preview’s text-matching and presentation path.
 
 ## Mapping to the plan
 
-| Plan capability                               | Implementation                                                                       |
-| --------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Approved-source discovery and ingestion       | HF + HN + batched arXiv metadata + arXiv HTML, validation, cache, rate limit         |
-| Source merging                                | Canonical arXiv ID, latest version, combined signals, reusable cards                 |
-| Agentic editorial judgment                    | Editor tools, selection validation, priorities, reasons, recorded trace              |
-| Research Paper Decoder / Launch Reality Check | Research tools, claims and quote receipts, post-verification, labels, uncertainty    |
-| Full provenance                               | Source URLs, paper versions, timestamps, source locations, tool trace                |
-| News-to-Learning                              | Three cached audience versions, glossary, educator guide, professional possibilities |
-| Four-category navigation                      | Technology implemented; other verticals are scoped empty states                      |
-| Briefings                                     | Text + optional ElevenLabs audio; live output not yet exercised                      |
-| Editorial quality gate                        | Personal / required modes, approve / hide, measured review time                      |
-| Trust and usefulness                          | Feedback, correction flags, human spot-checks, actual usage/cost ledger              |
-| Settings                                      | Topics, paper limit, review mode, briefing audience                                  |
-| Ask about a paper                             | P2, not implemented; endpoint reports roadmap status                                 |
-| Independent evidence inspection               | Partial: source faithfulness/provenance; corroboration is roadmap                    |
-| End-to-end live acceptance                    | Pending credentials and a live evaluation; fixture preview is separate               |
+| Plan capability                               | Implementation                                                                    |
+| --------------------------------------------- | --------------------------------------------------------------------------------- |
+| Approved-source discovery and ingestion       | HF + HN + batched arXiv metadata + arXiv HTML, validation, cache, rate limit      |
+| Source merging                                | Canonical arXiv ID, latest version, combined signals, reusable cards              |
+| Agentic editorial judgment                    | Editor tools, selection validation, priorities, reasons, recorded trace           |
+| Research Paper Decoder / Launch Reality Check | Research tools, claims and quote receipts, post-verification, labels, uncertainty |
+| Full provenance                               | Source URLs, paper versions, timestamps, source locations, tool trace             |
+| News-to-Learning                              | Student explanation: one-liner, analogy, takeaways, glossary, quick-check quiz    |
+| Category navigation                           | AI & Technology only; other verticals removed from this version                   |
+| Briefings                                     | Text + optional ElevenLabs audio; live output not yet exercised                   |
+| Editorial quality gate                        | Personal / required modes, approve / hide, measured review time                   |
+| Trust and usefulness                          | Feedback, correction flags, human spot-checks, actual usage/cost ledger           |
+| Settings                                      | Topics, paper limit, review mode, briefing audience                               |
+| Ask about a paper                             | P2, not implemented; endpoint reports roadmap status                              |
+| Independent evidence inspection               | Partial: source faithfulness/provenance; corroboration is roadmap                 |
+| End-to-end live acceptance                    | Pending credentials and a live evaluation; fixture preview is separate            |
 
 ## Limitations and roadmap
 

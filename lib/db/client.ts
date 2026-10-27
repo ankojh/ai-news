@@ -28,7 +28,6 @@ export function db() {
     for (const [k, v] of Object.entries({
       topics: ['LLM reasoning', 'AI agents'],
       review_mode: config.REVIEW_MODE,
-      briefing_audience: config.BRIEFING_AUDIENCE,
       max_papers_per_run: config.MAX_PAPERS_PER_RUN,
     }))
       seed.run(k, JSON.stringify(v));
@@ -67,7 +66,6 @@ export function settings() {
   ) as {
     topics: string[];
     review_mode: 'personal' | 'required';
-    briefing_audience: 'student' | 'educator' | 'professional';
     max_papers_per_run: number;
   };
 }

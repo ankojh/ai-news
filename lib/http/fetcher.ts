@@ -51,7 +51,8 @@ export async function allowedFetch(
         headers,
         redirect: 'error',
         signal: AbortSignal.any([
-          AbortSignal.timeout(20000),
+          // Narrating a two-minute briefing can take longer than a source read.
+          AbortSignal.timeout(u.hostname === 'api.elevenlabs.io' ? 120000 : 20000),
           ...(init.signal ? [init.signal] : []),
         ]),
       });
